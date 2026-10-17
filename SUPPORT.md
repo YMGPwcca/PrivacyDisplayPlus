@@ -23,7 +23,6 @@ app on another Android version does not make its hooks compatible.
 
 - Independent floating-window and split-screen settings.
 - Per-app rules for apps selected in Samsung Privacy Display.
-- Temporary protection for an open floating or split window in the main profile.
 - A Privacy Display button in Samsung's floating-window handle menu.
 - A separate Soft reboot button using KernelSU's supported `ksud soft-reboot`.
 
@@ -46,6 +45,11 @@ checks; a successful control response alone is not proof of optical protection.
 - Work profiles, Secure Folder, external displays, Recents cards and
   Picture-in-Picture are not supported by the added window controls.
 - Brightness compensation and panel-driver modifications are not included.
+- Per-app Maximum rules choose a shared display level. Simultaneous windows
+  cannot select independent strengths through this implementation. The new
+  override has been checked with native hooks and rapid Discord switching on
+  the supported firmware. Screen off/on and the full multi-window matrix still
+  need device validation.
 - Rotation, scrolling handle menus, larger display scales and every combination
   of multiple protected windows have not been fully checked on a device.
 
