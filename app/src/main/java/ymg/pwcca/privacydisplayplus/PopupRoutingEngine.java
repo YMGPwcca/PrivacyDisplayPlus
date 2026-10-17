@@ -14,11 +14,11 @@ final class PopupRoutingEngine {
     private static final int FREEFORM_MODE = 5;
     private static final int MULTI_WINDOW_MODE = 6;
     private final PolicyAccess access;
-    private final SplitSurfacePrivacy splitSurfaces;
+    private final WindowSurfacePrivacy windowSurfaces;
 
-    PopupRoutingEngine(PolicyAccess access, SplitSurfacePrivacy splitSurfaces) {
+    PopupRoutingEngine(PolicyAccess access, WindowSurfacePrivacy windowSurfaces) {
         this.access = access;
-        this.splitSurfaces = splitSurfaces;
+        this.windowSurfaces = windowSurfaces;
     }
 
     Snapshot before(Object window, ProtectionOptions options) throws ReflectiveOperationException {
@@ -29,18 +29,23 @@ final class PopupRoutingEngine {
         if (access.displayId(window) != 0) return null;
         Object controller = access.controller(window);
         synchronized (access.lock(controller)) {
-            if (!eligible(controller, window)) return null;
-            Object surface = liveSurface(access.surface(task));
-            if (surface == null) return null;
-            Object buffer = splitBuffer(window, windowingMode);
-            if (windowingMode == MULTI_WINDOW_MODE && buffer == null) return null;
-            int policy = access.appPolicy(controller);
-            if ((policy & ~KNOWN_REASONS) != 0) return null;
-            List<?> requests = access.requests(controller);
-            return new Snapshot(window, task, surface, buffer, controller, windowingMode, policy,
-                    access.option(controller), access.packageName(controller), requests,
-                    new ArrayList<>(requests));
+            return snapshot(window, task, controller, windowingMode);
         }
+    }
+
+    private Snapshot snapshot(Object window, Object task, Object controller, int windowingMode)
+            throws ReflectiveOperationException {
+        if (!eligible(controller, window)) return null;
+        Object surface = liveSurface(access.surface(task));
+        if (surface == null) return null;
+        Object buffer = liveSurface(access.bufferSurface(window));
+        if (buffer == null) return null;
+        int policy = access.appPolicy(controller);
+        if ((policy & ~KNOWN_REASONS) != 0) return null;
+        List<?> requests = access.requests(controller);
+        return new Snapshot(window, task, surface, buffer, controller, windowingMode, policy,
+                access.option(controller), access.packageName(controller), requests,
+                new ArrayList<>(requests));
     }
 
     private int regionalMode(Object task) throws ReflectiveOperationException {
@@ -51,11 +56,6 @@ final class PopupRoutingEngine {
         // Selection and lifecycle belong to the app's leaf task.
         if (!access.splitScreen(task) || !access.leafTask(task)) return 0;
         return mode;
-    }
-
-    private Object splitBuffer(Object window, int mode) throws ReflectiveOperationException {
-        if (mode != MULTI_WINDOW_MODE) return null;
-        return liveSurface(access.bufferSurface(window));
     }
 
     private Object liveSurface(Object surface) throws ReflectiveOperationException {
@@ -105,7 +105,7 @@ final class PopupRoutingEngine {
         if (access.option(s.controller) != s.option) return false;
         if (access.task(s.window) != s.task || regionalMode(s.task) != s.windowingMode) return false;
         if (liveSurface(access.surface(s.task)) != s.surface) return false;
-        return splitBuffer(s.window, s.windowingMode) == s.buffer;
+        return liveSurface(access.bufferSurface(s.window)) == s.buffer;
     }
 
     private boolean observedAppRequest(Snapshot s) throws ReflectiveOperationException {
@@ -125,7 +125,7 @@ final class PopupRoutingEngine {
         try {
             // Keep Samsung's package request list for manual-off bookkeeping.
             // Queue partial coverage BEFORE removing this window's full-screen contribution.
-            if (s.windowingMode == MULTI_WINDOW_MODE && !splitSurfaces.enable(s.window, s.task, s.buffer, selectedPackage)) return false;
+            if (!windowSurfaces.enable(s.window, s.task, s.buffer, selectedPackage)) return false;
             partial.add(s.task);
             access.packageName(s.controller, s.packageName);
             access.appPolicy(s.controller, s.policy);

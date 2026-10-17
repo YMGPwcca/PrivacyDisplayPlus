@@ -21,6 +21,8 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
             if (!INSTALLED.compareAndSet(false, true)) return;
             try { SystemUiPopupHook.install(loaded.classLoader); }
             catch (Throwable failure) { log("popup handle hook not installed (" + failure.getClass().getSimpleName() + ")"); }
+            try { SystemUiDragHook.install(loaded.classLoader); }
+            catch (Throwable failure) { log("floating drag hook not installed (" + failure.getClass().getSimpleName() + ")"); }
             return;
         }
         if (!"android".equals(loaded.packageName) || !"android".equals(loaded.processName)) return;
@@ -38,9 +40,9 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
 
     private static void install(ClassLoader loader) throws ReflectiveOperationException {
         ReflectivePolicyAccess access = new ReflectivePolicyAccess(loader);
-        SplitSurfacePrivacy splitSurfaces = new SplitSurfacePrivacy(access);
+        WindowSurfacePrivacy windowSurfaces = new WindowSurfacePrivacy(access);
         RuntimeGate gate = new RuntimeGate();
-        WindowFeatures features = new WindowFeatures(loader, access, splitSurfaces);
+        WindowFeatures features = new WindowFeatures(loader, access, windowSurfaces);
         ModuleControl control = new ModuleControl(gate, access, features);
         Class<?> visitor = Class.forName(FirmwareProfile.VISITOR, false, loader);
         Method target = ReflectivePolicyAccess.method(visitor, FirmwareProfile.VISIT_METHOD, Object.class);
@@ -50,7 +52,7 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
         Method deoptimize = XposedBridge.class.getMethod("deoptimizeMethod", Member.class);
         deoptimize.invoke(null, dispatcher);
         XC_MethodHook.Unhook hook = XposedBridge.hookMethod(target,
-                new RoutingHook(new PopupRoutingEngine(access, splitSurfaces), gate, control));
+                new RoutingHook(new PopupRoutingEngine(access, windowSurfaces), gate, control));
         if (hook == null) throw new IllegalStateException("Hook installation rejected");
         XC_MethodHook.Unhook surfaceHook = null;
         XC_MethodHook.Unhook removalHook = null;
@@ -60,7 +62,7 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
             Class<?> window = Class.forName("com.android.server.wm.WindowState", false, loader);
             deoptimize.invoke(null, ReflectivePolicyAccess.method(container, "prepareSurfaces"));
             surfaceHook = XposedBridge.hookMethod(ReflectivePolicyAccess.method(window, "prepareSurfaces"),
-                    new SplitCleanupHook(splitSurfaces, gate, control));
+                    new WindowCleanupHook(windowSurfaces, gate, control));
             if (surfaceHook == null) throw new IllegalStateException("Surface hook rejected");
             Class<?> task = Class.forName("com.android.server.wm.Task", false, loader);
             removalHook = XposedBridge.hookMethod(ReflectivePolicyAccess.method(task, "removeImmediately", String.class),
@@ -95,13 +97,13 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
 
     private static void log(String message) { XposedBridge.log(TAG + message); }
 
-    private static final class SplitCleanupHook extends XC_MethodHook {
-        private final SplitSurfacePrivacy surfaces;
+    private static final class WindowCleanupHook extends XC_MethodHook {
+        private final WindowSurfacePrivacy surfaces;
         private final RuntimeGate gate;
         private final ModuleControl control;
         private final AtomicBoolean reportedFailure = new AtomicBoolean();
 
-        SplitCleanupHook(SplitSurfacePrivacy surfaces, RuntimeGate gate, ModuleControl control) {
+        WindowCleanupHook(WindowSurfacePrivacy surfaces, RuntimeGate gate, ModuleControl control) {
             this.surfaces = surfaces;
             this.gate = gate;
             this.control = control;
@@ -116,7 +118,7 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
                 try { control.requestNativeTraversal(); }
                 catch (ReflectiveOperationException | RuntimeException ignored) { /* Retry via native layout. */ }
                 if (reportedFailure.compareAndSet(false, true)) {
-                    log("split surface cleanup failed (" + failure.getClass().getSimpleName() + ")");
+                    log("window surface cleanup failed (" + failure.getClass().getSimpleName() + ")");
                 }
             }
         }

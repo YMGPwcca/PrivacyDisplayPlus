@@ -15,16 +15,39 @@ public class TemporaryProtectionEngineTest {
         access = new FakeAccess();
         window = new Window();
         conditions = new TestConditions();
-        engine = new TemporaryProtectionEngine(access, new SplitSurfacePrivacy(access), conditions);
+        engine = new TemporaryProtectionEngine(access, new WindowSurfacePrivacy(access), conditions);
     }
 
     @Test public void unselectedFloatingTaskReceivesPrivacyWithoutChangingSamsungAppPolicy() throws Exception {
         access.policy = 2; // Independent secured-screen/full-display request.
         engine.contribute(window);
         assertTrue(access.partial.contains(window.task));
+        assertTrue(access.surfacePrivacy.get(window.buffer));
         assertEquals(2, access.policy);
         assertTrue(access.requests.isEmpty());
         assertEquals("previous", access.packageName);
+    }
+
+    @Test public void temporaryPopupUsesBoundedRegionAtPanelEdge() throws Exception {
+        window.bounds = new SplitPrivacyRegion.Bounds(1000, 400, 1800, 1600);
+        engine.contribute(window);
+        assertArrayEquals(new float[]{1, 1000, 400, 1426, 1600, 0, 0, 0, 0},
+                access.regions.get(window.buffer).data[0], 0);
+        assertTrue(access.partial.contains(window.task));
+    }
+
+    @Test public void temporaryPopupWithoutUsableBufferOrRegionDoesNotClaimCoverage() throws Exception {
+        window.buffer.valid = false;
+        engine.contribute(window);
+        assertTrue(access.partial.isEmpty());
+        window.buffer = null;
+        engine.contribute(window);
+        assertTrue(access.partial.isEmpty());
+        window.buffer = new Surface();
+        access.regionAvailable = false;
+        engine.contribute(window);
+        assertTrue(access.partial.isEmpty());
+        assertTrue(access.surfacePrivacy.isEmpty());
     }
 
     @Test public void unselectedSplitTaskQueuesItsBufferRegionBeforeJoiningNativePartialSet() throws Exception {

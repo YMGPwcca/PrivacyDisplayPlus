@@ -16,6 +16,7 @@ import java.util.function.Consumer;
 final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
     private final ReflectivePolicyAccess access;
     private final TemporaryProtectionEngine temporaryEngine;
+    private final WindowSurfacePrivacy surfaces;
     private final TemporaryTasks temporary = new TemporaryTasks();
     private final Field root, removing, taskId, ownerUser, appPolicyChange, valuesByUser, displayId;
     private final Field temporaryOff, fixedOff, targetRect, frames, frame, attrs;
@@ -25,9 +26,10 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
     private final Class<?> taskTokenClass;
     private final Method fromTaskToken;
 
-    WindowFeatures(ClassLoader loader, ReflectivePolicyAccess access, SplitSurfacePrivacy split)
+    WindowFeatures(ClassLoader loader, ReflectivePolicyAccess access, WindowSurfacePrivacy split)
             throws ReflectiveOperationException {
         this.access = access;
+        surfaces = split;
         temporaryEngine = new TemporaryProtectionEngine(access, split, this);
         Class<?> service = Class.forName("com.android.server.wm.WindowManagerService", false, loader);
         Class<?> task = Class.forName("com.android.server.wm.Task", false, loader);
@@ -173,7 +175,11 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
     }
 
     ProtectionOptions optionsFor(Object window, ProtectionOptions options) throws ReflectiveOperationException {
-        return switch (decision(access.task(window))) {
+        return taskOptions(access.task(window), options);
+    }
+
+    private ProtectionOptions taskOptions(Object task, ProtectionOptions options) throws ReflectiveOperationException {
+        return switch (decision(task)) {
             case TemporaryTasks.ON -> ProtectionOptions.BOTH;
             case TemporaryTasks.OFF -> ProtectionOptions.NONE;
             default -> options;
@@ -185,13 +191,7 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
     }
 
     Bundle handle(Object controller, Bundle command, boolean mutate) throws ReflectiveOperationException {
-        if (command == null) throw new IllegalArgumentException("Missing window");
-        Parcelable token = command.getParcelable(ControlProtocol.TASK_TOKEN, Parcelable.class);
-        if (!taskTokenClass.isInstance(token)) throw new IllegalArgumentException("Invalid window token");
-        Object task = fromTaskToken.invoke(null, token);
-        if (task == null || !openTask(task) || regionalMode(task) != 5 || !hasClientWindow(task)) {
-            throw new IllegalArgumentException("Popup closed or changed");
-        }
+        Object task = popupTask(command);
         if (mutate) applyHandleOverride(controller, task, command);
         Bundle reply = new Bundle();
         int value = decision(task);
@@ -200,6 +200,64 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
         reply.putBoolean(ControlProtocol.NATIVE_ALLOWED, allowed(controller));
         reply.putInt(ControlProtocol.OVERRIDE, value);
         return reply;
+    }
+
+    private Object popupTask(Bundle command) throws ReflectiveOperationException {
+        if (command == null) throw new IllegalArgumentException("Missing window");
+        Parcelable token = command.getParcelable(ControlProtocol.TASK_TOKEN, Parcelable.class);
+        if (!taskTokenClass.isInstance(token)) throw new IllegalArgumentException("Invalid window token");
+        Object task = fromTaskToken.invoke(null, token);
+        if (!validPopup(task)) {
+            throw new IllegalArgumentException("Popup closed or changed");
+        }
+        return task;
+    }
+
+    private boolean validPopup(Object task) throws ReflectiveOperationException {
+        return task != null && openTask(task) && regionalMode(task) == 5 && hasClientWindow(task);
+    }
+
+    Bundle drag(Object controller, Bundle command, ProtectionOptions options) throws ReflectiveOperationException {
+        Object task = popupTask(command);
+        String id = dragId(command);
+        if (!allowed(controller) || !access.taskPrivacyRequested(task)) throw new IllegalStateException("Not protected");
+        options = taskOptions(task, options);
+        ArrayList<Bundle> targets = new ArrayList<>();
+        for (WindowSurfacePrivacy.DragTarget target : surfaces.dragTargets(task, options)) {
+            Bundle row = new Bundle();
+            row.putParcelable(ControlProtocol.SURFACE, (Parcelable) target.surface());
+            row.putIntArray(ControlProtocol.WINDOW_BOUNDS, coordinates(target.window()));
+            row.putIntArray(ControlProtocol.DISPLAY_BOUNDS, coordinates(target.display()));
+            targets.add(row);
+        }
+        Bundle reply = new Bundle();
+        reply.putParcelableArrayList(ControlProtocol.ITEMS, targets);
+        if (!targets.isEmpty()) surfaces.beginDrag(task, id);
+        Rect bounds = (Rect) taskBounds.invoke(task);
+        reply.putIntArray(ControlProtocol.TASK_BOUNDS, new int[]{bounds.left, bounds.top, bounds.right, bounds.bottom});
+        return reply;
+    }
+
+    Bundle dragState(Object controller, Bundle command) throws ReflectiveOperationException {
+        String id = dragId(command);
+        Parcelable token = command.getParcelable(ControlProtocol.TASK_TOKEN, Parcelable.class);
+        if (!taskTokenClass.isInstance(token)) throw new IllegalArgumentException("Invalid window token");
+        Object task = fromTaskToken.invoke(null, token);
+        if (task == null) return new Bundle();
+        boolean active = command.getBoolean(ControlProtocol.DRAG_ACTIVE);
+        if (!active) surfaces.endDrag(task, id);
+        else if (regionalMode(task) == 5 && allowed(controller) && access.taskPrivacyRequested(task)) surfaces.renewDrag(task, id);
+        return new Bundle();
+    }
+
+    private static String dragId(Bundle command) {
+        String id = command.getString(ControlProtocol.DRAG_ID);
+        if (id == null || id.length() > 64) throw new IllegalArgumentException("Missing drag identity");
+        return id;
+    }
+
+    private static int[] coordinates(SplitPrivacyRegion.Bounds bounds) {
+        return new int[]{bounds.left(), bounds.top(), bounds.right(), bounds.bottom()};
     }
 
     private void applyHandleOverride(Object controller, Object task, Bundle command) throws ReflectiveOperationException {
@@ -246,7 +304,7 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
         return display != null && Rect.intersects(bounds, display);
     }
 
-    void removed(Object task) { temporary.remove(task); }
+    void removed(Object task) { temporary.remove(task); surfaces.endDrag(task); }
     void changed(Object task) throws ReflectiveOperationException { protects(task); }
     int count() { return temporary.count(); }
     int overrideCount() { return temporary.overrideCount(); }

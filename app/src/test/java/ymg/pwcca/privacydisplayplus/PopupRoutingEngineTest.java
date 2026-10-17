@@ -11,13 +11,13 @@ import static org.junit.Assert.*;
 public class PopupRoutingEngineTest {
     private FakeAccess access;
     private PopupRoutingEngine engine;
-    private SplitSurfacePrivacy splitSurfaces;
+    private WindowSurfacePrivacy windowSurfaces;
     private Window window;
 
     @Before public void setup() {
         access = new FakeAccess();
-        splitSurfaces = new SplitSurfacePrivacy(access);
-        engine = new PopupRoutingEngine(access, splitSurfaces);
+        windowSurfaces = new WindowSurfacePrivacy(access);
+        engine = new PopupRoutingEngine(access, windowSurfaces);
         window = new Window();
     }
 
@@ -91,6 +91,7 @@ public class PopupRoutingEngineTest {
     }
 
     @Test public void selectedPopupUsesTaskPrivacyAndKeepsSamsungRequestList() throws Exception {
+        access.requireBufferBeforeRemovingApp = true;
         PopupRoutingEngine.Snapshot s = before(window);
         samsungAppRequest("popup");
         assertTrue(after(s));
@@ -98,6 +99,55 @@ public class PopupRoutingEngineTest {
         assertTrue(access.partial.contains(target(window)));
         assertEquals(List.of("popup"), access.requests);
         assertEquals("previous", access.packageName);
+        assertTrue(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+    }
+
+    @Test public void popupCrossingPanelEdgeQueuesClippedRegionBeforeRemovingFullRequest() throws Exception {
+        window.bounds = new SplitPrivacyRegion.Bounds(-200, 400, 600, 1600);
+        access.requireBufferBeforeRemovingApp = true;
+        PopupRoutingEngine.Snapshot snapshot = before(window);
+        samsungAppRequest("popup");
+        assertTrue(after(snapshot));
+        assertArrayEquals(new float[]{1, 14, 400, 600, 1600, 0, 0, 0, 0},
+                access.regions.get(window.buffer).data[0], 0);
+        assertEquals(Set.of(window.task), access.partial);
+    }
+
+    @Test public void popupWithoutUsableGeometryKeepsFullAppProtection() throws Exception {
+        window.bounds = new SplitPrivacyRegion.Bounds(-800, 400, 10, 1600);
+        PopupRoutingEngine.Snapshot snapshot = before(window);
+        samsungAppRequest("popup");
+        assertFalse(after(snapshot));
+        assertEquals(1, access.policy);
+        assertTrue(access.partial.isEmpty());
+        assertTrue(access.surfacePrivacy.isEmpty());
+    }
+
+    @Test public void popupMissingOrInvalidBufferKeepsNativeRouting() throws Exception {
+        window.buffer.valid = false;
+        assertNull(before(window));
+        window.buffer = null;
+        assertNull(before(window));
+    }
+
+    @Test public void popupBufferReplacementDuringCallbackKeepsFullAppProtection() throws Exception {
+        PopupRoutingEngine.Snapshot snapshot = before(window);
+        samsungAppRequest("popup");
+        window.buffer = new Surface();
+        assertFalse(after(snapshot));
+        assertEquals(1, access.policy);
+        assertTrue(access.surfacePrivacy.isEmpty());
+    }
+
+    @Test public void failedPopupRegionWriteDoesNotRemoveFullAppProtection() throws Exception {
+        PopupRoutingEngine.Snapshot snapshot = before(window);
+        samsungAppRequest("popup");
+        access.failedSurfaceWrites = 1;
+        try { after(snapshot); fail("Expected region transaction failure"); }
+        catch (IllegalAccessException expected) { }
+        assertEquals(1, access.policy);
+        assertTrue(access.partial.isEmpty());
+        assertTrue(access.surfacePrivacy.isEmpty());
     }
 
     @Test public void fullScreenRulePreservesTheSelectedAppsNativeContribution() throws Exception {
@@ -107,6 +157,7 @@ public class PopupRoutingEngineTest {
         assertFalse(engine.after(snapshot, options));
         assertEquals(1, access.policy);
         assertTrue(access.partial.isEmpty());
+        assertTrue(access.surfacePrivacy.isEmpty());
         assertEquals(java.util.List.of("example.bank"), access.requests);
     }
 
@@ -160,9 +211,9 @@ public class PopupRoutingEngineTest {
         PopupRoutingEngine.Snapshot snapshot = engine.before(window, options);
         samsungAppRequest("example.bank");
         assertTrue(engine.after(snapshot, options));
-        splitSurfaces.prepare(window, options);
+        windowSurfaces.prepare(window, options);
         assertTrue(access.surfacePrivacy.get(window.buffer));
-        splitSurfaces.prepare(window, options.withRule("example.bank", new AppRule(1, 2)));
+        windowSurfaces.prepare(window, options.withRule("example.bank", new AppRule(1, 2)));
         assertFalse(access.surfacePrivacy.get(window.buffer));
     }
 
@@ -605,6 +656,8 @@ public class PopupRoutingEngineTest {
         samsungAppRequest("popup2");
         assertTrue(after(next));
         assertEquals(2, access.partial.size());
+        assertTrue(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+        assertTrue(Boolean.TRUE.equals(access.surfacePrivacy.get(second.buffer)));
         assertEquals(0, access.policy);
     }
 
@@ -695,7 +748,13 @@ public class PopupRoutingEngineTest {
         int display, user;
         Surface surface = new Surface();
     }
-    static final class Window { Task task = new Task(); Surface buffer = new Surface(); int display, samsungFlags; }
+    static final class Window {
+        Task task = new Task();
+        Surface buffer = new Surface();
+        int display, samsungFlags;
+        SplitPrivacyRegion.Bounds bounds = new SplitPrivacyRegion.Bounds(0, 1575, 1440, 3120);
+        SplitPrivacyRegion.Bounds displayBounds = new SplitPrivacyRegion.Bounds(0, 0, 1440, 3120);
+    }
 
     static final class FakeAccess implements PolicyAccess {
         final Object lock = new Object();
@@ -713,19 +772,25 @@ public class PopupRoutingEngineTest {
         @Override public boolean splitScreen(Object t) { return ((Task) t).split; }
         @Override public boolean leafTask(Object t) { return ((Task) t).leaf; }
         final java.util.Map<Object, Boolean> surfacePrivacy = new java.util.HashMap<>();
+        final java.util.Map<Object, SplitPrivacyRegion> regions = new java.util.HashMap<>();
         int failedSurfaceWrites;
+        int surfaceWrites;
         boolean requireBufferBeforeRemovingApp;
         @Override public Object bufferSurface(Object w) { return ((Window) w).buffer; }
         @Override public boolean taskPrivacyRequested(Object t) { return ((Task) t).requested; }
         boolean regionAvailable = true;
+        @Override public SplitPrivacyRegion.Bounds windowBounds(Object w) { return ((Window) w).bounds; }
+        @Override public SplitPrivacyRegion.Bounds displayBounds(Object w) { return ((Window) w).displayBounds; }
         @Override public SplitPrivacyRegion privacyRegion(Object w) {
             if (!regionAvailable) return null;
-            return SplitPrivacyRegion.create(new SplitPrivacyRegion.Bounds(0, 1575, 1440, 3120),
-                    new SplitPrivacyRegion.Bounds(0, 0, 1440, 3120));
+            Window window = (Window) w;
+            return SplitPrivacyRegion.create(window.bounds, window.displayBounds);
         }
         @Override public void queuePrivacyRegion(Object w, Object surface, SplitPrivacyRegion region) throws IllegalAccessException {
             if (failedSurfaceWrites > 0) { failedSurfaceWrites--; throw new IllegalAccessException(); }
+            surfaceWrites++;
             surfacePrivacy.put(surface, region != null);
+            regions.put(surface, region);
         }
         @Override public Object surface(Object t) { return ((Task) t).surface; }
         @Override public boolean validSurface(Object s) { return ((Surface) s).valid; }

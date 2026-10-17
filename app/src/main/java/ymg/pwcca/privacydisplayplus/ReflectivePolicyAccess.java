@@ -128,11 +128,16 @@ final class ReflectivePolicyAccess implements PolicyAccess {
         return taskPrivacyRequested.getBoolean(task);
     }
     @Override public SplitPrivacyRegion privacyRegion(Object window) throws ReflectiveOperationException {
+        SplitPrivacyRegion.Bounds display = displayBounds(window);
+        return display == null ? null : SplitPrivacyRegion.create(windowBounds(window), display);
+    }
+    @Override public SplitPrivacyRegion.Bounds windowBounds(Object window) throws IllegalAccessException {
+        return regionBounds((Rect) windowFrame.get(windowFrames.get(window)));
+    }
+    @Override public SplitPrivacyRegion.Bounds displayBounds(Object window) throws ReflectiveOperationException {
         Object display = getDisplayContent.invoke(window);
         if (display == null) return null;
-        Rect frame = (Rect) windowFrame.get(windowFrames.get(window));
-        Rect bounds = (Rect) getBounds.invoke(display);
-        return SplitPrivacyRegion.create(regionBounds(frame), regionBounds(bounds));
+        return regionBounds((Rect) getBounds.invoke(display));
     }
     private static SplitPrivacyRegion.Bounds regionBounds(Rect rect) {
         return new SplitPrivacyRegion.Bounds(rect.left, rect.top, rect.right, rect.bottom);

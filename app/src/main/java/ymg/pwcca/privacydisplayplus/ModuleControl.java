@@ -73,6 +73,8 @@ final class ModuleControl {
         int systemUiUid = context.getPackageManager().getPackageUid(HandleCaller.PACKAGE, 0);
         IntentFilter filter = new IntentFilter(ControlProtocol.HANDLE_QUERY);
         filter.addAction(ControlProtocol.HANDLE_SET);
+        filter.addAction(ControlProtocol.DRAG_QUERY);
+        filter.addAction(ControlProtocol.DRAG_STATE);
         context.registerReceiver(new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
                 if (!isOrderedBroadcast()) return;
@@ -95,8 +97,8 @@ final class ModuleControl {
                 Object controller = access.controllerForService(current);
                 synchronized (access.lock(controller)) {
                     boolean mutate = ControlProtocol.HANDLE_SET.equals(intent.getAction());
-                    reply = features.handle(controller, intent.getExtras(), mutate);
-                    if (mutate) access.requestTraversal(current);
+                    reply = popupReply(controller, intent, mutate);
+                    if (mutate || ControlProtocol.DRAG_STATE.equals(intent.getAction())) access.requestTraversal(current);
                 }
             }
             result = Activity.RESULT_OK;
@@ -105,6 +107,27 @@ final class ModuleControl {
         }
         reply.putInt(ControlProtocol.VERSION, ControlProtocol.VERSION_CODE);
         receiver.setResult(result, null, reply);
+    }
+
+    private Bundle popupReply(Object controller, Intent intent, boolean mutate) throws ReflectiveOperationException {
+        if (ControlProtocol.DRAG_QUERY.equals(intent.getAction())) {
+            Bundle result = features.drag(controller, intent.getExtras(), gate.options());
+            scheduleDragExpiry();
+            return result;
+        }
+        if (ControlProtocol.DRAG_STATE.equals(intent.getAction())) {
+            Bundle result = features.dragState(controller, intent.getExtras());
+            if (intent.getBooleanExtra(ControlProtocol.DRAG_ACTIVE, false)) scheduleDragExpiry();
+            return result;
+        }
+        return features.handle(controller, intent.getExtras(), mutate);
+    }
+
+    private void scheduleDragExpiry() {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            try { requestNativeTraversal(); }
+            catch (ReflectiveOperationException | RuntimeException ignored) { /* A later native traversal retries. */ }
+        }, 3100);
     }
 
     private void requireHandleReady(Intent intent) {

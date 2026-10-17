@@ -17,6 +17,8 @@ interface PolicyAccess {
     Object bufferSurface(Object window) throws ReflectiveOperationException;
     boolean taskPrivacyRequested(Object task) throws ReflectiveOperationException;
     SplitPrivacyRegion privacyRegion(Object window) throws ReflectiveOperationException;
+    SplitPrivacyRegion.Bounds windowBounds(Object window) throws ReflectiveOperationException;
+    SplitPrivacyRegion.Bounds displayBounds(Object window) throws ReflectiveOperationException;
     void queuePrivacyRegion(Object window, Object surface, SplitPrivacyRegion region) throws ReflectiveOperationException;
     Object surface(Object task) throws ReflectiveOperationException;
     boolean validSurface(Object surface) throws ReflectiveOperationException;

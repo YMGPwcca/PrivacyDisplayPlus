@@ -35,9 +35,11 @@ checks; a successful control response alone is not proof of optical protection.
 
 - Samsung's compositor supports two independent privacy regions. Notification
   pop-ups and other protected windows may compete for them.
-- Split regions stop 14 physical pixels short of the outer left/right panel
+- Window regions stop 14 physical pixels short of the outer left/right panel
   edges and 16 pixels short of the top/bottom edges to satisfy the current
-  compositor bounds checks. Floating regions near an edge can also be rejected.
+  compositor bounds checks. Floating regions are clipped to this same interval
+  in the native move transaction while dragging, including movement along an
+  edge. Optical validation of this floating-edge correction is pending.
 - Full-screen Samsung privacy conditions, including manual privacy and secured
   screens, can still protect the whole display. Turning off one window does not
   cancel those independent conditions.
@@ -68,9 +70,8 @@ the package name or enabling more LSPosed scopes will not add compatibility.
 **Whole screen protected:** check Samsung's manual toggle, app rules and other
 full-screen privacy conditions.
 
-**Window not protected:** turn on Samsung's Conditions for turning on, move a
-floating window away from the panel edges, and check whether another protected
-window or notification is using a region.
+**Window not protected:** turn on Samsung's Conditions for turning on and check
+whether another protected window or notification is using a region.
 
 Report a reproducible problem in [Issues](https://github.com/YMGPwcca/PrivacyDisplayPlus/issues).
 Include the app version, firmware, LSPosed version, window type and steps. Remove

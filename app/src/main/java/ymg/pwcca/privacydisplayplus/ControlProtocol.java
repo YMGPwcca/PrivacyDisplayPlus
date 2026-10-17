@@ -12,6 +12,11 @@ final class ControlProtocol {
     static final String WINDOWS = PACKAGE + ".WINDOWS";
     static final String TEMPORARY = PACKAGE + ".TEMPORARY";
     static final String HANDLE_QUERY = PACKAGE + ".HANDLE_QUERY", HANDLE_SET = PACKAGE + ".HANDLE_SET";
+    static final String DRAG_QUERY = PACKAGE + ".DRAG_QUERY";
+    static final String DRAG_STATE = PACKAGE + ".DRAG_STATE", DRAG_ACTIVE = "drag_active";
+    static final String DRAG_ID = "drag_id";
+    static final String SURFACE = "surface", WINDOW_BOUNDS = "window_bounds", DISPLAY_BOUNDS = "display_bounds";
+    static final String TASK_BOUNDS = "task_bounds";
     static final String TASK_TOKEN = "task_token", OVERRIDE = "override", OVERRIDE_COUNT = "override_count";
     static final String RULE_PACKAGES = "rule_packages", RULE_FLOATING = "rule_floating", RULE_SPLIT = "rule_split";
     static final String ITEMS = "items", TOKEN = "token", PROTECTED = "protected", ERROR = "error";
@@ -23,8 +28,8 @@ final class ControlProtocol {
     static final String READY = "ready";
     static final String HEALTHY = "healthy";
     static final String VERSION = "version";
-    // Earlier hooks cannot acknowledge app rules or temporary task requests.
-    static final int VERSION_CODE = 12;
+    // Earlier hooks do not update the panel-edge clamp in the drag transaction.
+    static final int VERSION_CODE = 14;
 
     static boolean hasOptions(Bundle bundle) {
         return bundle != null && bundle.containsKey(FLOATING) && bundle.containsKey(SPLIT)
