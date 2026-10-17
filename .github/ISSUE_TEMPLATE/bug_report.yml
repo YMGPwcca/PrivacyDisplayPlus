@@ -1,0 +1,42 @@
+name: Bug report
+description: Report a problem with Privacy Display+.
+body:
+  - type: input
+    id: app_version
+    attributes:
+      label: App version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Device and firmware
+      description: Include the model, Android / One UI version and build number.
+    validations:
+      required: true
+  - type: input
+    id: lsposed
+    attributes:
+      label: LSPosed version and selected scopes
+    validations:
+      required: true
+  - type: dropdown
+    id: window_type
+    attributes:
+      label: Where does it happen?
+      options:
+        - Floating window
+        - Split screen
+        - App settings
+        - Soft reboot
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps, expected result and actual result
+      description: Use a non-sensitive test app. Remove personal content from screenshots and logs.
+    validations:
+      required: true

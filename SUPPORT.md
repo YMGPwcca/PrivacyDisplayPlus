@@ -1,0 +1,77 @@
+# Compatibility and support
+
+## Supported device software
+
+Privacy Display+ requires Samsung's built-in Privacy Display hardware and an
+LSPosed installation that can hook System Framework and System UI.
+
+| Device | Android / One UI | Firmware |
+| --- | --- | --- |
+| Samsung Galaxy S26 Ultra, SM-S948B | Android 17 / One UI 9 | S948BXXS4BZIG / OXM4BZIG |
+
+The current firmware profile checks this exact build fingerprint:
+
+```text
+samsung/m3qxxx/m3q:17/CP2A.260605.016/S948BXXS4BZIG_OXM4BZIG:user/release-keys
+```
+
+Other builds leave the hooks disabled. An OTA can change internal Samsung
+methods or resources even when the device name stays the same. Installing the
+app on another Android version does not make its hooks compatible.
+
+## What is supported
+
+- Independent floating-window and split-screen settings.
+- Per-app rules for apps selected in Samsung Privacy Display.
+- Temporary protection for an open floating or split window in the main profile.
+- A Privacy Display button in Samsung's floating-window handle menu.
+- A separate Soft reboot button using KernelSU's supported `ksud soft-reboot`.
+
+The window protection and handle controls have been checked on the firmware
+above. Automated routing checks are separate from physical, off-axis viewing
+checks; a successful control response alone is not proof of optical protection.
+
+## Limits
+
+- Samsung's compositor supports two independent privacy regions. Notification
+  pop-ups and other protected windows may compete for them.
+- Split regions stop 14 physical pixels short of the outer left/right panel
+  edges and 16 pixels short of the top/bottom edges to satisfy the current
+  compositor bounds checks. Floating regions near an edge can also be rejected.
+- Full-screen Samsung privacy conditions, including manual privacy and secured
+  screens, can still protect the whole display. Turning off one window does not
+  cancel those independent conditions.
+- Work profiles, Secure Folder, external displays, Recents cards and
+  Picture-in-Picture are not supported by the added window controls.
+- Brightness compensation and panel-driver modifications are not included.
+- Rotation, scrolling handle menus, larger display scales and every combination
+  of multiple protected windows have not been fully checked on a device.
+
+## Soft reboot and temporary root
+
+The button is available only when a compatible KernelSU daemon exposes the
+`soft-reboot` command. It reloads Android userspace, closes running apps and has
+no fallback to a full device reboot. Save your work before using it.
+
+Temporary root and LSPosed must already be working. This app does not install
+root, unlock the bootloader, flash partitions or make temporary root persistent.
+A full device reboot can end a temporary root session.
+
+## Troubleshooting
+
+**Setup required:** enable Privacy Display+ in LSPosed, select System Framework
+and System UI, then soft reboot using your supported method.
+
+**Unsupported software:** compare your firmware with the table above. Changing
+the package name or enabling more LSPosed scopes will not add compatibility.
+
+**Whole screen protected:** check Samsung's manual toggle, app rules and other
+full-screen privacy conditions.
+
+**Window not protected:** turn on Samsung's Conditions for turning on, move a
+floating window away from the panel edges, and check whether another protected
+window or notification is using a region.
+
+Report a reproducible problem in [Issues](https://github.com/YMGPwcca/PrivacyDisplayPlus/issues).
+Include the app version, firmware, LSPosed version, window type and steps. Remove
+messages, account details and other personal content from screenshots and logs.
