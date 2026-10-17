@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission android:name="ymg.pwcca.privacydisplayplus.permission.CONTROL"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="ymg.pwcca.privacydisplayplus.permission.CONTROL" />
+    <queries>
+        <package android:name="me.weishu.kernelsu" />
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
+    </queries>
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:description="@string/module_description"
+        android:theme="@style/Theme.PrivacyDisplayPlus"
+        android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".AppRulesActivity" android:exported="false" />
+        <activity android:name=".WindowPickerActivity" android:exported="false" />
+        <provider android:name=".ConfigProvider"
+            android:authorities="ymg.pwcca.privacydisplayplus.config"
+            android:directBootAware="true" android:exported="true"
+            android:readPermission="ymg.pwcca.privacydisplayplus.permission.CONTROL"
+            android:writePermission="ymg.pwcca.privacydisplayplus.permission.CONTROL" />
+        <meta-data android:name="xposedmodule" android:value="true" />
+        <meta-data android:name="xposeddescription" android:value="@string/module_description" />
+        <meta-data android:name="xposedminversion" android:value="82" />
+        <meta-data android:name="xposedscope" android:resource="@array/xposed_scope" />
+    </application>
+</manifest>

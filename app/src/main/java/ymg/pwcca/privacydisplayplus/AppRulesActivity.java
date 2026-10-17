@@ -1,0 +1,96 @@
+package ymg.pwcca.privacydisplayplus;
+
+import android.os.Bundle;
+import android.view.View;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputLayout;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+public final class AppRulesActivity extends FeatureListActivity {
+    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    @Override int pageTitle() { return R.string.app_rules_title; }
+    @Override int pageIntro() { return R.string.app_rules_intro; }
+
+    @Override void reload() {
+        loading();
+        control.apps((ok, state) -> {
+            if (isDestroyed()) return;
+            setBusy(false);
+            clearRows();
+            if (!usable(ok, state)) { message.setText(R.string.feature_unavailable); return; }
+            ArrayList<String> names = state.getStringArrayList(ControlProtocol.ITEMS);
+            if (names == null || names.isEmpty()) { message.setText(R.string.no_selected_apps); return; }
+            names.sort(Comparator.comparing(this::label, String.CASE_INSENSITIVE_ORDER));
+            ProtectionOptions saved = ModulePreferences.options(this);
+            boolean applied = saved.sameAs(ControlProtocol.readOptions(state));
+            message.setText(applied ? R.string.rules_ready : R.string.status_not_applied_detail);
+            for (String name : names) {
+                AppRule rule = saved.appRules.getOrDefault(name, AppRule.INHERIT);
+                addRow(label(name), summary(rule), () -> edit(name));
+            }
+        });
+    }
+
+    private String summary(AppRule rule) {
+        return getString(R.string.rule_summary, choice(rule.floating()), choice(rule.split()));
+    }
+
+    private String choice(int value) {
+        return getString(switch (value) {
+            case AppRule.WINDOW -> R.string.rule_window;
+            case AppRule.FULL_SCREEN -> R.string.rule_full_screen;
+            default -> R.string.rule_default;
+        });
+    }
+
+    private void edit(String name) {
+        ProtectionOptions saved = ModulePreferences.options(this);
+        AppRule rule = saved.appRules.getOrDefault(name, AppRule.INHERIT);
+        View content = getLayoutInflater().inflate(R.layout.dialog_app_rule, null);
+        MaterialAutoCompleteTextView floating = content.findViewById(R.id.rule_floating);
+        MaterialAutoCompleteTextView split = content.findViewById(R.id.rule_split);
+        int[] choices = {rule.floating(), rule.split()};
+        setupChoice(floating, content.findViewById(R.id.rule_floating_input), saved.floating, choices, 0);
+        setupChoice(split, content.findViewById(R.id.rule_split_input), saved.split, choices, 1);
+        new MaterialAlertDialogBuilder(this).setTitle(label(name)).setView(content)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.save, (dialog, which) -> save(name, new AppRule(choices[0], choices[1])))
+                .show();
+    }
+
+    private void setupChoice(MaterialAutoCompleteTextView view, TextInputLayout input, boolean fallback, int[] values, int index) {
+        String[] labels = {getString(R.string.rule_default_value, choice(fallback ? AppRule.WINDOW : AppRule.FULL_SCREEN)),
+                choice(AppRule.WINDOW), choice(AppRule.FULL_SCREEN)};
+        view.setSimpleItems(labels);
+        view.setText(labels[values[index]], false);
+        view.setOnItemClickListener((parent, item, position, id) -> values[index] = position);
+        view.setOnClickListener(ignored -> view.showDropDown());
+        input.setEndIconOnClickListener(ignored -> view.showDropDown());
+    }
+
+    private void save(String name, AppRule rule) {
+        setBusy(true);
+        message.setText(R.string.status_saving);
+        worker.execute(() -> {
+            ProtectionOptions desired = ModulePreferences.update(this, previous -> previous.withRule(name, rule));
+            boolean saved = desired != null;
+            runOnUiThread(() -> {
+                if (isDestroyed()) return;
+                if (!saved) { setBusy(false); message.setText(R.string.status_save_failed_detail); return; }
+                control.set(desired, (ok, state) -> {
+                    if (isDestroyed()) return;
+                    boolean applied = usable(ok, state) && desired.sameAs(ControlProtocol.readOptions(state));
+                    setBusy(false);
+                    if (applied) reload();
+                    else message.setText(R.string.status_not_applied_detail);
+                });
+            });
+        });
+    }
+
+    @Override protected void onDestroy() { worker.shutdown(); super.onDestroy(); }
+}

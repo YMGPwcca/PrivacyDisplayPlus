@@ -1,0 +1,22 @@
+/.gradle/
+/**/build/
+/local.properties
+/device-evidence/
+/upstream-PrivacyBox/
+*.jks
+*.keystore
+/.idea/
+*.iml
+/.impeccable/review/
+
+# Local design records and private device validation
+/.impeccable/
+/PRODUCT.md
+/DESIGN.md
+/docs/local-validation.md
+/docs/phone-validation.md
+/docs/implementation.md
+/.signing/
+/dist/
+__pycache__/
+*.pyc
