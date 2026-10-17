@@ -1,0 +1,115 @@
+name: Release APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['app/build.gradle.kts', '.github/workflows/release.yml', 'ci/**']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Main-branch commit or tag to build
+        required: true
+        default: main
+      publish:
+        description: Publish if this version has no published release
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_releases: ${{ steps.plan.outputs.has_releases }}
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Test release planning
+        run: python3 -m unittest discover -s ci/tests -v
+      - id: plan
+        run: python3 ci/release.py plan
+
+  release:
+    needs: plan
+    if: needs.plan.outputs.has_releases == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    concurrency:
+      group: release-apk-${{ matrix.version }}
+      cancel-in-progress: false
+    env:
+      RELEASE_SHA: ${{ matrix.sha }}
+      RELEASE_VERSION: ${{ matrix.version }}
+      SIGNING_CERT_SHA256: d3eeca8f69cb38aa8117e3d338a6589e87d295b1610c8326bb148c399ab00640
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ matrix.sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@4c125117fe7c5aed11272ec4213f602f012f89f2 # v5
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Build and test release
+        working-directory: source
+        run: bash gradlew :app:assembleRelease :app:testReleaseUnitTest :app:lintRelease --console=plain
+      - name: Restore signing key
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          key = Path(os.environ['RUNNER_TEMP']) / 'privacydisplayplus-signing.keystore'
+          key.write_bytes(base64.b64decode(os.environ['SIGNING_KEY_BASE64'], validate=True))
+          key.chmod(0o600)
+          PY
+      - name: Sign APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p dist
+          tools="$ANDROID_HOME/build-tools/36.0.0"
+          "$tools/zipalign" -P 16 -f 4 source/app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/privacydisplayplus-signing.keystore" --ks-key-alias privacydisplayplus --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD --v4-signing-enabled false --out "dist/PrivacyDisplayPlus-$RELEASE_VERSION.apk" "$RUNNER_TEMP/aligned.apk"
+      - name: Verify APK and create checksum
+        run: python3 ci/release.py verify --sha "$RELEASE_SHA"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: PrivacyDisplayPlus-${{ matrix.version }}-${{ github.run_attempt }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish version release
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 ci/release.py publish --sha "$RELEASE_SHA"
+      - name: Remove signing key
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          (Path(os.environ['RUNNER_TEMP']) / 'privacydisplayplus-signing.keystore').unlink(missing_ok=True)
+          PY
