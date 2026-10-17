@@ -30,8 +30,8 @@
     <string name="reboot_dialog_title">Soft reboot?</string>
     <string name="reboot_dialog_message">Reload Android userspace to apply changes. Save your work first; running apps will close. Root access is required.</string>
     <string name="cancel">Cancel</string>
-    <string name="reboot_waiting">Waiting for root access and requesting soft rebootâ€¦</string>
-    <string name="reboot_requested">Soft reboot requested. Waiting for Androidâ€¦</string>
+    <string name="reboot_waiting">Waiting for root access and requesting soft reboot\u2026</string>
+    <string name="reboot_requested">Soft reboot requested. Waiting for Android\u2026</string>
     <string name="reboot_unavailable">Root is unavailable. Check your root session and grant access to Privacy Display+ in KernelSU.</string>
     <string name="reboot_denied">Root access was not granted. Allow Privacy Display+ in KernelSU and try again.</string>
     <string name="reboot_unsupported">No compatible soft reboot command was found. No action was taken.</string>
@@ -57,7 +57,7 @@
     <string name="rule_default_value">Default (%1$s)</string>
     <string name="rule_window">Window only</string>
     <string name="rule_full_screen">Full screen</string>
-    <string name="rule_summary">Floating: %1$s Â· Split: %2$s</string>
+    <string name="rule_summary">Floating: %1$s \u00b7 Split: %2$s</string>
     <string name="rules_ready">Tap an app to change its rules. Changes apply immediately.</string>
     <string name="no_selected_apps">No apps selected. Choose apps in Samsung Privacy Display settings, then tap Refresh.</string>
     <string name="feature_unavailable">The current module is not connected. Enable System Framework in LSPosed and soft reboot after updating, then tap Refresh.</string>
