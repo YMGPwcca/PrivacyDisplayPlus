@@ -23,13 +23,6 @@ final class ControlClient {
         request(ControlProtocol.SET, values, callback);
     }
     void apps(Callback callback) { request(ControlProtocol.APPS, null, callback); }
-    void windows(Callback callback) { request(ControlProtocol.WINDOWS, null, callback); }
-    void temporary(String token, boolean enabled, Callback callback) {
-        Bundle values = new Bundle();
-        values.putString(ControlProtocol.TOKEN, token);
-        values.putBoolean(ControlProtocol.PROTECTED, enabled);
-        request(ControlProtocol.TEMPORARY, values, callback);
-    }
     void close() { generation++; handler.removeCallbacksAndMessages(null); }
 
     private void request(String action, Bundle values, Callback callback) {

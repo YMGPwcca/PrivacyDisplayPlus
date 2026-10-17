@@ -23,7 +23,6 @@
             </intent-filter>
         </activity>
         <activity android:name=".AppRulesActivity" android:exported="false" />
-        <activity android:name=".WindowPickerActivity" android:exported="false" />
         <provider android:name=".ConfigProvider"
             android:authorities="ymg.pwcca.privacydisplayplus.config"
             android:directBootAware="true" android:exported="true"

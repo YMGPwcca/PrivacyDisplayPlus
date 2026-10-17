@@ -18,11 +18,11 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
     private final TemporaryProtectionEngine temporaryEngine;
     private final WindowSurfacePrivacy surfaces;
     private final TemporaryTasks temporary = new TemporaryTasks();
-    private final Field root, removing, taskId, ownerUser, appPolicyChange, valuesByUser, displayId;
+    private final Field removing, ownerUser, appPolicyChange, valuesByUser, displayId;
     private final Field temporaryOff, fixedOff, targetRect, frames, frame, attrs;
     private final Field activity, transitionController, transitionFeature;
-    private final Method allLeafTasks, allWindows, attached, displayContent, basePackage, isApp, taskBounds, displayBounds, ready;
-    private final Method fullyTransparent, inTransition, transientHide, visibleRequested, taskVisible;
+    private final Method allWindows, attached, displayContent, basePackage, isApp, taskBounds, ready;
+    private final Method fullyTransparent, inTransition, transientHide, visibleRequested;
     private final Class<?> taskTokenClass;
     private final Method fromTaskToken;
 
@@ -31,23 +31,18 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
         this.access = access;
         surfaces = split;
         temporaryEngine = new TemporaryProtectionEngine(access, split, this);
-        Class<?> service = Class.forName("com.android.server.wm.WindowManagerService", false, loader);
         Class<?> task = Class.forName("com.android.server.wm.Task", false, loader);
         Class<?> controller = Class.forName("com.android.server.wm.PrivacyDisplayController", false, loader);
         Class<?> window = Class.forName("com.android.server.wm.WindowState", false, loader);
         Class<?> changes = Class.forName("com.samsung.android.server.packagefeature.PackageFeatureUserChange", false, loader);
         Class<?> activityClass = Class.forName("com.android.server.wm.ActivityRecord", false, loader);
         Class<?> transitions = Class.forName("com.android.server.wm.TransitionController", false, loader);
-        root = field(service, "mRoot", Object.class);
         removing = field(task, "mRemoving", boolean.class);
-        taskId = field(task, "mTaskId", int.class);
         ownerUser = field(task, "mUserId", int.class);
-        allLeafTasks = method(root.getType(), "forAllLeafTasks", Consumer.class, boolean.class);
         allWindows = method(task, "forAllWindows", Consumer.class, boolean.class);
         attached = method(task, "isAttached");
         displayContent = method(task, "getDisplayContent");
         displayId = field(displayContent.getReturnType(), "mDisplayId", int.class);
-        displayBounds = method(displayContent.getReturnType(), "getBounds");
         basePackage = method(task, "getBasePackageName");
         isApp = method(task, "isActivityTypeStandard");
         taskBounds = method(task, "getBounds");
@@ -66,7 +61,6 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
         inTransition = method(activityClass, "inTransition");
         transientHide = method(transitions, "isTransientHide", task);
         visibleRequested = method(activityClass, "isVisibleRequested");
-        taskVisible = method(task, "isVisible");
         transitionFeature = field(Class.forName("com.samsung.android.rune.CoreRune", false, loader),
                 "FW_PRIVACY_DISPLAY_TRANSITION", boolean.class);
         taskTokenClass = Class.forName("android.window.WindowContainerToken", false, loader);
@@ -111,36 +105,6 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
         return (boolean) isApp.invoke(task) && access.leafTask(task) && regionalMode(task) != 0;
     }
 
-    ArrayList<Bundle> windows(Object service) throws ReflectiveOperationException {
-        ArrayList<Object> tasks = new ArrayList<>();
-        allLeafTasks.invoke(root.get(service), (Consumer<Object>) tasks::add, true);
-        ArrayList<Bundle> rows = new ArrayList<>();
-        for (Object task : tasks) {
-            if (rows.size() == 32) break;
-            if (!openTask(task)) { temporary.remove(task); continue; }
-            if (!hasClientWindow(task)) continue;
-            String name = (String) basePackage.invoke(task);
-            if (name == null || ControlProtocol.PACKAGE.equals(name)) continue;
-            int mode = regionalMode(task);
-            TemporaryTasks.Entry entry = temporary.offer(task, mode);
-            Bundle row = new Bundle();
-            row.putString(ControlProtocol.TOKEN, entry.token());
-            row.putString("package", name);
-            row.putInt("task_id", taskId.getInt(task));
-            row.putInt("mode", mode);
-            row.putBoolean(ControlProtocol.PROTECTED, entry.protectedNow());
-            row.putInt(ControlProtocol.OVERRIDE, entry.override());
-            row.putBoolean("visible", (boolean) taskVisible.invoke(task));
-            Rect bounds = (Rect) taskBounds.invoke(task);
-            row.putIntArray("bounds", new int[]{bounds.left, bounds.top, bounds.right, bounds.bottom});
-            Object display = displayContent.invoke(task);
-            Rect panel = (Rect) displayBounds.invoke(display);
-            row.putIntArray("display_bounds", new int[]{panel.left, panel.top, panel.right, panel.bottom});
-            rows.add(row);
-        }
-        return rows;
-    }
-
     private boolean hasClientWindow(Object task) throws ReflectiveOperationException {
         List<Object> windows = new ArrayList<>();
         allWindows.invoke(task, (Consumer<Object>) windows::add, true);
@@ -151,17 +115,6 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
             if (surface != null && access.validSurface(surface)) return true;
         }
         return false;
-    }
-
-    void setTemporary(Object controller, String token, boolean enabled) throws ReflectiveOperationException {
-        Object task = temporary.resolve(token);
-        if (task == null || !openTask(task)) throw new IllegalArgumentException("Window closed or changed");
-        if (!temporary.offer(task, regionalMode(task)).token().equals(token)) {
-            throw new IllegalArgumentException("Window mode changed");
-        }
-        if (enabled && !allowed(controller)) throw new IllegalStateException("Samsung conditions are unavailable");
-        if (enabled && !hasClientWindow(task)) throw new IllegalArgumentException("Window closed");
-        temporary.set(task, regionalMode(task), enabled);
     }
 
     boolean protects(Object task) throws ReflectiveOperationException {

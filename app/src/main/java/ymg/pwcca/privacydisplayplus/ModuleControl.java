@@ -141,8 +141,6 @@ final class ModuleControl {
         IntentFilter filter = new IntentFilter(ControlProtocol.QUERY);
         filter.addAction(ControlProtocol.SET);
         filter.addAction(ControlProtocol.APPS);
-        filter.addAction(ControlProtocol.WINDOWS);
-        filter.addAction(ControlProtocol.TEMPORARY);
         context.registerReceiver(new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
                 if (!isOrderedBroadcast()) return;
@@ -188,8 +186,7 @@ final class ModuleControl {
 
     private void handleFeatures(Intent intent, Bundle status) throws ReflectiveOperationException {
         String action = intent.getAction();
-        if (!ControlProtocol.APPS.equals(action) && !ControlProtocol.WINDOWS.equals(action)
-                && !ControlProtocol.TEMPORARY.equals(action)) return;
+        if (!ControlProtocol.APPS.equals(action)) return;
         if (!gate.isReady() || !gate.isHealthy() || service == null) throw new IllegalStateException("Not ready");
         Object current = service;
         synchronized (access.globalLock(current)) {
@@ -203,18 +200,7 @@ final class ModuleControl {
     private void featureReply(Intent intent, Bundle status, Object current, Object controller)
             throws ReflectiveOperationException {
         status.putBoolean(ControlProtocol.NATIVE_ALLOWED, features.allowed(controller));
-        if (ControlProtocol.APPS.equals(intent.getAction())) {
-            status.putStringArrayList(ControlProtocol.ITEMS, features.selectedApps(controller));
-        } else if (ControlProtocol.WINDOWS.equals(intent.getAction())) {
-            status.putParcelableArrayList(ControlProtocol.ITEMS, features.windows(current));
-        } else {
-            String token = intent.getStringExtra(ControlProtocol.TOKEN);
-            if (token == null || token.length() > 64 || !intent.hasExtra(ControlProtocol.PROTECTED)) {
-                throw new IllegalArgumentException("Missing temporary selection");
-            }
-            features.setTemporary(controller, token, intent.getBooleanExtra(ControlProtocol.PROTECTED, false));
-            access.requestTraversal(current);
-        }
+        status.putStringArrayList(ControlProtocol.ITEMS, features.selectedApps(controller));
     }
 
     boolean canRoute() { return gate.isReady() && gate.isHealthy(); }

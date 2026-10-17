@@ -55,36 +55,12 @@ public final class DeviceControlProbe extends Instrumentation {
         require(status.getInt(ControlProtocol.VERSION) == ControlProtocol.VERSION_CODE, "Wrong hook protocol");
         require(status.getBoolean(ControlProtocol.READY) && status.getBoolean(ControlProtocol.HEALTHY), "Hook unavailable");
         Bundle apps = request(ControlProtocol.APPS, null);
-        Bundle windows = request(ControlProtocol.WINDOWS, null);
         ArrayList<String> selected = apps.getStringArrayList(ControlProtocol.ITEMS);
-        ArrayList<Bundle> rows = windows.getParcelableArrayList(ControlProtocol.ITEMS, Bundle.class);
-        require(selected != null && rows != null, "Missing lists");
+        require(selected != null, "Missing app list");
         output.putInt("selected_app_count", selected.size());
-        output.putInt("open_window_count", rows.size());
         output.putInt("protocol", status.getInt(ControlProtocol.VERSION));
-        output.putInt("temporary_count", status.getInt(ControlProtocol.TEMP_COUNT));
         output.putInt("window_override_count", status.getInt(ControlProtocol.OVERRIDE_COUNT));
-        output.putInt("forced_off_window_count", (int) rows.stream().filter(row -> row.getInt(ControlProtocol.OVERRIDE) == TemporaryTasks.OFF).count());
-        if ("list".equals(operation)) return;
-        require("enable".equals(operation) || "disable".equals(operation), "Unknown operation");
-        boolean enable = "enable".equals(operation);
-        Bundle target = uniqueWindow(rows, selected, Integer.parseInt(arguments.getString("task_id", "-1")),
-                Integer.parseInt(arguments.getString("window_mode", "5")), arguments.getString("test_package"));
-        int expectedBefore = enable ? 0 : 1;
-        require(status.getInt(ControlProtocol.TEMP_COUNT) == expectedBefore, "Unexpected existing temporary sessions");
-        Bundle command = new Bundle();
-        command.putString(ControlProtocol.TOKEN, target.getString(ControlProtocol.TOKEN));
-        command.putBoolean(ControlProtocol.PROTECTED, enable);
-        request(ControlProtocol.TEMPORARY, command);
-        Bundle acknowledged = request(ControlProtocol.QUERY, null);
-        require(acknowledged.getInt(ControlProtocol.TEMP_COUNT) == (enable ? 1 : 0), "Temporary count mismatch");
-        output.putInt("chosen_task_id", target.getInt("task_id"));
-        output.putInt("chosen_window_mode", target.getInt("mode"));
-        output.putBoolean("temporary_requested", enable);
-        output.putInt("temporary_count", acknowledged.getInt(ControlProtocol.TEMP_COUNT));
-        require(selected.equals(request(ControlProtocol.APPS, null).getStringArrayList(ControlProtocol.ITEMS)),
-                "Samsung app selection changed");
-        output.putBoolean("samsung_selection_unchanged", true);
+        require("list".equals(operation), "Unknown operation");
     }
 
     private void styleProbe(Bundle output) {
@@ -189,19 +165,6 @@ public final class DeviceControlProbe extends Instrumentation {
             client.close();
             viewThread.quitSafely();
         }
-    }
-
-    private Bundle uniqueWindow(List<Bundle> rows, List<String> selected, int taskId, int mode, String testPackage) {
-        require(mode == 5 || mode == 6, "Unsupported test window mode");
-        ArrayList<Bundle> candidates = new ArrayList<>();
-        for (Bundle row : rows) {
-            if (row.getInt("mode") != mode || selected.contains(row.getString("package"))) continue;
-            if (taskId >= 0 && row.getInt("task_id") != taskId) continue;
-            if (testPackage != null && !testPackage.equals(row.getString("package"))) continue;
-            candidates.add(row);
-        }
-        require(candidates.size() == 1, "Need exactly one matching unselected test window");
-        return candidates.get(0);
     }
 
     private Bundle request(String action, Bundle values) throws Exception {

@@ -16,10 +16,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends AppCompatActivity {
-    private final androidx.activity.result.ActivityResultLauncher<android.content.Intent> picker = registerForActivityResult(
-            new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(), result -> {
-                if (result.getResultCode() == RESULT_OK) moveTaskToBack(true);
-            });
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private ControlClient control;
     private MaterialSwitch floatingToggle, splitToggle;
@@ -40,8 +36,6 @@ public final class MainActivity extends AppCompatActivity {
         rebootStatus = findViewById(R.id.reboot_status);
         actionRow(R.id.app_rules, R.string.app_rules_title, R.string.app_rules_description,
                 () -> startActivity(new android.content.Intent(this, AppRulesActivity.class)));
-        actionRow(R.id.protect_window, R.string.protect_window_title, R.string.protect_window_description,
-                () -> picker.launch(new android.content.Intent(this, WindowPickerActivity.class)));
         findViewById(R.id.screen).setOnApplyWindowInsetsListener((view, insets) -> {
             android.graphics.Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
@@ -174,7 +168,6 @@ public final class MainActivity extends AppCompatActivity {
         floatingToggle.setEnabled(available);
         splitToggle.setEnabled(available);
         findViewById(R.id.app_rules).setEnabled(available);
-        findViewById(R.id.protect_window).setEnabled(available);
         reboot.setEnabled(available && !RootCommandRunner.state().isPending());
     }
 

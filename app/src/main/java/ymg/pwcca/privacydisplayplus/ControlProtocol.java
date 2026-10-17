@@ -9,8 +9,6 @@ final class ControlProtocol {
     static final String QUERY = PACKAGE + ".QUERY";
     static final String SET = PACKAGE + ".SET";
     static final String APPS = PACKAGE + ".APPS";
-    static final String WINDOWS = PACKAGE + ".WINDOWS";
-    static final String TEMPORARY = PACKAGE + ".TEMPORARY";
     static final String HANDLE_QUERY = PACKAGE + ".HANDLE_QUERY", HANDLE_SET = PACKAGE + ".HANDLE_SET";
     static final String DRAG_QUERY = PACKAGE + ".DRAG_QUERY";
     static final String DRAG_STATE = PACKAGE + ".DRAG_STATE", DRAG_ACTIVE = "drag_active";
@@ -20,7 +18,7 @@ final class ControlProtocol {
     static final String TASK_TOKEN = "task_token", OVERRIDE = "override", OVERRIDE_COUNT = "override_count";
     static final String RULE_PACKAGES = "rule_packages", RULE_FLOATING = "rule_floating", RULE_SPLIT = "rule_split";
     static final String RULE_MAXIMUM = "rule_maximum";
-    static final String ITEMS = "items", TOKEN = "token", PROTECTED = "protected", ERROR = "error";
+    static final String ITEMS = "items", PROTECTED = "protected", ERROR = "error";
     static final String TEMP_COUNT = "temporary_count", NATIVE_ALLOWED = "native_allowed";
     static final String GET_CONFIG = "get_config";
     static final String ENABLED = "enabled";

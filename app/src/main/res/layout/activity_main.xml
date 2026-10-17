@@ -99,10 +99,6 @@
                         android:layout_width="match_parent" android:layout_height="1dp"
                         app:dividerInsetStart="16dp" app:dividerInsetEnd="16dp" />
                     <include android:id="@+id/app_rules" layout="@layout/settings_action_row" />
-                    <com.google.android.material.divider.MaterialDivider
-                        android:layout_width="match_parent" android:layout_height="1dp"
-                        app:dividerInsetStart="16dp" app:dividerInsetEnd="16dp" />
-                    <include android:id="@+id/protect_window" layout="@layout/settings_action_row" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
