@@ -103,7 +103,7 @@ final class WindowSurfacePrivacy {
             throws ReflectiveOperationException {
         if (entry.task.get() != task || entry.windowingMode != 5) return null;
         if (!keep(window, entry, optionsFor(window, entry, options))) return null;
-        return new DragTarget(entry.surface, access.windowBounds(window), access.displayBounds(window));
+        return new DragTarget(entry.surface, access.windowBounds(window), access.displayBounds(window), access.cornerRadius(window));
     }
 
     private ProtectionOptions optionsFor(Object window, Entry entry, ProtectionOptions options)
@@ -140,7 +140,7 @@ final class WindowSurfacePrivacy {
         owned.remove(window); // Failed transactions retain ownership for a later cleanup attempt.
     }
 
-    record DragTarget(Object surface, SplitPrivacyRegion.Bounds window, SplitPrivacyRegion.Bounds display) {}
+    record DragTarget(Object surface, SplitPrivacyRegion.Bounds window, SplitPrivacyRegion.Bounds display, float cornerRadius) {}
     private record DragLease(String id, long until) {}
     private record Entry(WeakReference<Object> task, Object surface, String selectedPackage, int windowingMode,
                          SplitPrivacyRegion region) {}

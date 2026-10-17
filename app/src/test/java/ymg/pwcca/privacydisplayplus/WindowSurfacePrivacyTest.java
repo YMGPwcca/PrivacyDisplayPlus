@@ -10,6 +10,22 @@ public class WindowSurfacePrivacyTest {
     private WindowSurfacePrivacy surfaces;
     private Window window;
 
+    @Test public void nativeRadiusReachesBufferAndDragTargetsAndRefreshesWhenItChanges() throws Exception {
+        setup();
+        window.task.mode = 5;
+        window.bounds = bounds(200, 400, 1000, 1600);
+        access.radius = 90;
+        enable();
+        assertEquals(90, access.regions.get(window.buffer).data[0][5], 0);
+        assertEquals(90, surfaces.dragTargets(window.task, ProtectionOptions.BOTH).get(0).cornerRadius(), 0);
+        access.radius = 70;
+        surfaces.prepare(window, ProtectionOptions.BOTH);
+        assertEquals(70, access.regions.get(window.buffer).data[0][5], 0);
+        window.task.mode = 6;
+        enable();
+        assertEquals(0, access.regions.get(window.buffer).data[0][5], 0);
+    }
+
     @Before public void setup() {
         access = new FakeAccess();
         surfaces = new WindowSurfacePrivacy(access);

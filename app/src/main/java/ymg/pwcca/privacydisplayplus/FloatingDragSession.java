@@ -8,7 +8,11 @@ final class FloatingDragSession {
         boolean valid(Object surface) throws ReflectiveOperationException;
         void queue(Object transaction, Object surface, SplitPrivacyRegion region) throws ReflectiveOperationException;
     }
-    record Target(Object surface, SplitPrivacyRegion.Bounds window, SplitPrivacyRegion.Bounds display) {}
+    record Target(Object surface, SplitPrivacyRegion.Bounds window, SplitPrivacyRegion.Bounds display, float cornerRadius) {
+        Target(Object surface, SplitPrivacyRegion.Bounds window, SplitPrivacyRegion.Bounds display) {
+            this(surface, window, display, 0);
+        }
+    }
     private final Object taskSurface;
     private final SplitPrivacyRegion.Bounds task;
     private final List<Target> targets;
@@ -46,7 +50,8 @@ final class FloatingDragSession {
         int top = (int) Math.ceil(y + (frame.top() - task.top()) * scale);
         int right = (int) Math.floor(x + (frame.right() - task.left()) * scale);
         int bottom = (int) Math.floor(y + (frame.bottom() - task.top()) * scale);
-        return SplitPrivacyRegion.create(new SplitPrivacyRegion.Bounds(left, top, right, bottom), target.display);
+        return SplitPrivacyRegion.create(new SplitPrivacyRegion.Bounds(left, top, right, bottom),
+                target.display, target.cornerRadius * scale);
     }
 
     void close() { closed = true; }

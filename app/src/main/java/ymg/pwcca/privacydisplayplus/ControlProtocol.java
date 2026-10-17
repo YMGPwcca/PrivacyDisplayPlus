@@ -15,6 +15,7 @@ final class ControlProtocol {
     static final String DRAG_ID = "drag_id";
     static final String SURFACE = "surface", WINDOW_BOUNDS = "window_bounds", DISPLAY_BOUNDS = "display_bounds";
     static final String TASK_BOUNDS = "task_bounds";
+    static final String CORNER_RADIUS = "corner_radius";
     static final String TASK_TOKEN = "task_token", OVERRIDE = "override", OVERRIDE_COUNT = "override_count";
     static final String RULE_PACKAGES = "rule_packages", RULE_FLOATING = "rule_floating", RULE_SPLIT = "rule_split";
     static final String RULE_MAXIMUM = "rule_maximum";
@@ -27,8 +28,8 @@ final class ControlProtocol {
     static final String READY = "ready";
     static final String HEALTHY = "healthy";
     static final String VERSION = "version";
-    // Earlier hooks cannot apply per-app Maximum privacy rules.
-    static final int VERSION_CODE = 15;
+    // Earlier hooks leave the compositor's shared region radius nonzero at the right edge.
+    static final int VERSION_CODE = 18;
 
     static boolean hasOptions(Bundle bundle) {
         return bundle != null && bundle.containsKey(FLOATING) && bundle.containsKey(SPLIT)

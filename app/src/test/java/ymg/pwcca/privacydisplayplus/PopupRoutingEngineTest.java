@@ -759,6 +759,7 @@ public class PopupRoutingEngineTest {
     static final class FakeAccess implements PolicyAccess {
         final Object lock = new Object();
         int mode = 2, option, policy, failedPolicyWrites;
+        float radius;
         boolean requirePartialBeforeRemovingApp;
         String packageName = "previous";
         List<String> requests = new ArrayList<>();
@@ -784,8 +785,9 @@ public class PopupRoutingEngineTest {
         @Override public SplitPrivacyRegion privacyRegion(Object w) {
             if (!regionAvailable) return null;
             Window window = (Window) w;
-            return SplitPrivacyRegion.create(window.bounds, window.displayBounds);
+            return SplitPrivacyRegion.create(window.bounds, window.displayBounds, cornerRadius(w));
         }
+        @Override public float cornerRadius(Object w) { return ((Window) w).task.mode == 5 ? radius : 0; }
         @Override public void queuePrivacyRegion(Object w, Object surface, SplitPrivacyRegion region) throws IllegalAccessException {
             if (failedSurfaceWrites > 0) { failedSurfaceWrites--; throw new IllegalAccessException(); }
             surfaceWrites++;

@@ -181,6 +181,7 @@ final class WindowFeatures implements TemporaryProtectionEngine.Conditions {
             row.putParcelable(ControlProtocol.SURFACE, (Parcelable) target.surface());
             row.putIntArray(ControlProtocol.WINDOW_BOUNDS, coordinates(target.window()));
             row.putIntArray(ControlProtocol.DISPLAY_BOUNDS, coordinates(target.display()));
+            row.putFloat(ControlProtocol.CORNER_RADIUS, target.cornerRadius());
             targets.add(row);
         }
         Bundle reply = new Bundle();

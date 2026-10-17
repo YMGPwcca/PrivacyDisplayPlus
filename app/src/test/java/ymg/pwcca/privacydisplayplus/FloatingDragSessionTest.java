@@ -10,6 +10,40 @@ public class FloatingDragSessionTest {
     private final SplitPrivacyRegion.Bounds task = bounds(200, 400, 1000, 1600);
     private final SplitPrivacyRegion.Bounds display = bounds(0, 0, 1440, 3120);
 
+    @Test public void draggingRetainsNativeRoundedCornersAndUpdatesTheClipAtEveryPosition() throws Exception {
+        FloatingDragSession session = new FloatingDragSession(taskSurface, task,
+                List.of(new FloatingDragSession.Target(buffer, task, display, 90)));
+        Writer writer = new Writer();
+        session.move(transaction, taskSurface, 300, 500, 1, writer);
+        assertArrayEquals(new float[]{1, 300, 500, 1100, 1700, 90, 90, 90, 90}, writer.region.data[0], 0);
+        session.move(transaction, taskSurface, -200, 700, 1, writer);
+        assertArrayEquals(new float[]{1, 14, 700, 600, 1900, 0, 0, 0, 0}, writer.region.data[0], 0);
+        session.move(transaction, taskSurface, 300, 500, 1, writer);
+        assertArrayEquals(new float[]{1, 300, 500, 1100, 1700, 90, 90, 90, 90}, writer.region.data[0], 0);
+    }
+
+    @Test public void nativeStashScaleScalesCornersWithWindowGeometry() throws Exception {
+        FloatingDragSession session = new FloatingDragSession(taskSurface, task,
+                List.of(new FloatingDragSession.Target(buffer, task, display, 90)));
+        Writer writer = new Writer();
+        session.move(transaction, taskSurface, 300, 500, .5f, writer);
+        assertArrayEquals(new float[]{1, 300, 500, 700, 1100, 45, 45, 45, 45}, writer.region.data[0], 0);
+    }
+
+    @Test public void rightEdgeFlattensBothCornersSymmetricallyAndRoundingReturnsOnEveryMove() throws Exception {
+        FloatingDragSession session = new FloatingDragSession(taskSurface, task,
+                List.of(new FloatingDragSession.Target(buffer, task, display, 90)));
+        Writer writer = new Writer();
+        session.move(transaction, taskSurface, 640, 500, 1, writer);
+        assertArrayEquals(new float[]{1, 640, 500, 1426, 1700, 0, 0, 0, 0}, writer.region.data[0], 0);
+        session.move(transaction, taskSurface, 626, 500, 1, writer);
+        assertEquals(0, writer.region.data[0][6], 0);
+        assertEquals(0, writer.region.data[0][8], 0);
+        session.move(transaction, taskSurface, 625, 500, 1, writer);
+        assertEquals(90, writer.region.data[0][6], 0);
+        assertEquals(90, writer.region.data[0][8], 0);
+    }
+
     private FloatingDragSession session(SplitPrivacyRegion.Bounds window) {
         return new FloatingDragSession(taskSurface, task,
                 List.of(new FloatingDragSession.Target(buffer, window, display)));

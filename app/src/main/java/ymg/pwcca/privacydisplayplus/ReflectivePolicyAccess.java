@@ -18,6 +18,8 @@ final class ReflectivePolicyAccess implements PolicyAccess {
     private final Method setRegions;
     private final Field globalLock;
     private final Method requestTraversal;
+    private final Field serviceContext;
+    private final Method freeformCornerRadius;
 
     ReflectivePolicyAccess(ClassLoader loader) throws ReflectiveOperationException {
         Class<?> window = load(loader, "com.android.server.wm.WindowState");
@@ -35,6 +37,9 @@ final class ReflectivePolicyAccess implements PolicyAccess {
         wmService = field(window, "mWmService", service);
         globalLock = field(service, "mGlobalLock", Object.class);
         requestTraversal = method(service, "requestTraversal");
+        serviceContext = field(service, "mContext", android.content.Context.class);
+        freeformCornerRadius = method(load(loader, "com.samsung.android.multiwindow.MultiWindowUtils"),
+                "getFreeformRoundedCornerRadius", android.content.Context.class, int.class);
         serviceExt = field(service, "mExt", extension);
         privacyController = field(extension, "mPrivacyDisplayController", controller);
         privacyLock = field(controller, "mPrivacyLock", Object.class);
@@ -129,7 +134,13 @@ final class ReflectivePolicyAccess implements PolicyAccess {
     }
     @Override public SplitPrivacyRegion privacyRegion(Object window) throws ReflectiveOperationException {
         SplitPrivacyRegion.Bounds display = displayBounds(window);
-        return display == null ? null : SplitPrivacyRegion.create(windowBounds(window), display);
+        return display == null ? null : SplitPrivacyRegion.create(windowBounds(window), display, cornerRadius(window));
+    }
+    @Override public float cornerRadius(Object window) throws ReflectiveOperationException {
+        Object task = getTask.invoke(window);
+        if (task == null || windowingMode(task) != 5) return 0;
+        Object context = serviceContext.get(wmService.get(window));
+        return (float) freeformCornerRadius.invoke(null, context, getDisplayId.invoke(window));
     }
     @Override public SplitPrivacyRegion.Bounds windowBounds(Object window) throws IllegalAccessException {
         return regionBounds((Rect) windowFrame.get(windowFrames.get(window)));

@@ -7,6 +7,7 @@ import java.util.Set;
 interface PolicyAccess {
     default String windowPackage(Object window) throws ReflectiveOperationException { return null; }
     default int userId(Object task) throws ReflectiveOperationException { return 0; }
+    default float cornerRadius(Object window) throws ReflectiveOperationException { return 0; }
     Object controller(Object window) throws ReflectiveOperationException;
     Object lock(Object controller) throws ReflectiveOperationException;
     Object task(Object window) throws ReflectiveOperationException;

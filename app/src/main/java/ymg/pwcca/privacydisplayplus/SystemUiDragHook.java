@@ -200,8 +200,11 @@ final class SystemUiDragHook {
         Parcelable surface = row.getParcelable(ControlProtocol.SURFACE, surfaceClass);
         if (surface == null) return null;
         drag.copies.add(surface);
+        if (!row.containsKey(ControlProtocol.CORNER_RADIUS)) throw new IllegalArgumentException("Missing corner radius");
+        float radius = row.getFloat(ControlProtocol.CORNER_RADIUS);
+        if (!Float.isFinite(radius) || radius < 0) throw new IllegalArgumentException("Invalid corner radius");
         return new FloatingDragSession.Target(surface, bounds(row.getIntArray(ControlProtocol.WINDOW_BOUNDS)),
-                bounds(row.getIntArray(ControlProtocol.DISPLAY_BOUNDS)));
+                bounds(row.getIntArray(ControlProtocol.DISPLAY_BOUNDS)), radius);
     }
 
     private static SplitPrivacyRegion.Bounds bounds(int[] coordinates) {
