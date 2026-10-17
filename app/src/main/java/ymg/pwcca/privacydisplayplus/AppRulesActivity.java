@@ -2,6 +2,8 @@ package ymg.pwcca.privacydisplayplus;
 
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ScrollView;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputLayout;
@@ -36,7 +38,8 @@ public final class AppRulesActivity extends FeatureListActivity {
     }
 
     private String summary(AppRule rule) {
-        return getString(R.string.rule_summary, choice(rule.floating()), choice(rule.split()));
+        return getString(R.string.rule_summary, choice(rule.floating()), choice(rule.split()))
+                + "\n" + getString(rule.maximum() ? R.string.maximum_rule_on : R.string.maximum_rule_default);
     }
 
     private String choice(int value) {
@@ -53,12 +56,17 @@ public final class AppRulesActivity extends FeatureListActivity {
         View content = getLayoutInflater().inflate(R.layout.dialog_app_rule, null);
         MaterialAutoCompleteTextView floating = content.findViewById(R.id.rule_floating);
         MaterialAutoCompleteTextView split = content.findViewById(R.id.rule_split);
+        MaterialSwitch maximum = content.findViewById(R.id.rule_maximum);
+        maximum.setChecked(rule.maximum());
         int[] choices = {rule.floating(), rule.split()};
         setupChoice(floating, content.findViewById(R.id.rule_floating_input), saved.floating, choices, 0);
         setupChoice(split, content.findViewById(R.id.rule_split_input), saved.split, choices, 1);
-        new MaterialAlertDialogBuilder(this).setTitle(label(name)).setView(content)
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(content);
+        new MaterialAlertDialogBuilder(this).setTitle(label(name)).setView(scroll)
                 .setNegativeButton(R.string.cancel, null)
-                .setPositiveButton(R.string.save, (dialog, which) -> save(name, new AppRule(choices[0], choices[1])))
+                .setPositiveButton(R.string.save, (dialog, which) ->
+                        save(name, new AppRule(choices[0], choices[1], maximum.isChecked())))
                 .show();
     }
 

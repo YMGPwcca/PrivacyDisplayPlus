@@ -13,6 +13,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
     private static final String TAG = "Privacy Display+: ";
     private static final String SNAPSHOT = "s26.popup.privacy.snapshot";
+    private static final String MAXIMUM_SNAPSHOT = "s26.maximum.privacy.snapshot";
     private static final AtomicBoolean INSTALLED = new AtomicBoolean();
 
     @Override public void handleLoadPackage(XC_LoadPackage.LoadPackageParam loaded) {
@@ -44,6 +45,7 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
         RuntimeGate gate = new RuntimeGate();
         WindowFeatures features = new WindowFeatures(loader, access, windowSurfaces);
         ModuleControl control = new ModuleControl(gate, access, features);
+        MaximumPrivacyHook maximum = new MaximumPrivacyHook(loader, access, gate);
         Class<?> visitor = Class.forName(FirmwareProfile.VISITOR, false, loader);
         Method target = ReflectivePolicyAccess.method(visitor, FirmwareProfile.VISIT_METHOD, Object.class);
         Method dispatcher = ReflectivePolicyAccess.method(visitor, "accept", Object.class);
@@ -52,7 +54,7 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
         Method deoptimize = XposedBridge.class.getMethod("deoptimizeMethod", Member.class);
         deoptimize.invoke(null, dispatcher);
         XC_MethodHook.Unhook hook = XposedBridge.hookMethod(target,
-                new RoutingHook(new PopupRoutingEngine(access, windowSurfaces), gate, control));
+                new RoutingHook(new PopupRoutingEngine(access, windowSurfaces), gate, control, maximum));
         if (hook == null) throw new IllegalStateException("Hook installation rejected");
         XC_MethodHook.Unhook surfaceHook = null;
         XC_MethodHook.Unhook removalHook = null;
@@ -83,9 +85,11 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
             lifecycleHooks.add(XposedBridge.hookMethod(ReflectivePolicyAccess.method(task, "onParentChanged",
                     configuration, configuration), changed));
             if (lifecycleHooks.contains(null)) throw new IllegalStateException("Task lifecycle hook rejected");
+            maximum.install(deoptimize);
             control.install(loader);
         } catch (ReflectiveOperationException | RuntimeException failure) {
             gate.disableOnFailure();
+            maximum.uninstall();
             if (surfaceHook != null) surfaceHook.unhook();
             if (removalHook != null) removalHook.unhook();
             for (XC_MethodHook.Unhook installed : lifecycleHooks) if (installed != null) installed.unhook();
@@ -129,18 +133,21 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
         private final RuntimeGate gate;
         private final ModuleControl control;
         private final AtomicBoolean reportedConversion = new AtomicBoolean();
+        private final MaximumPrivacyHook maximum;
         private volatile boolean enabled = true;
 
-        RoutingHook(PopupRoutingEngine engine, RuntimeGate gate, ModuleControl control) {
+        RoutingHook(PopupRoutingEngine engine, RuntimeGate gate, ModuleControl control, MaximumPrivacyHook maximum) {
             this.engine = engine;
             this.gate = gate;
             this.control = control;
+            this.maximum = maximum;
         }
 
         @Override protected void beforeHookedMethod(MethodHookParam param) {
             if (!enabled) return;
             try {
                 control.observeWindow(param.args[0]);
+                param.setObjectExtra(MAXIMUM_SNAPSHOT, maximum.before(param.args[0]));
                 if (!control.canRoute()) return;
                 param.setObjectExtra(SNAPSHOT, engine.before(param.args[0], control.routingOptionsFor(param.args[0])));
             } catch (Throwable failure) { disable(failure); }
@@ -157,6 +164,8 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
                     log("app window privacy request handled; verify on the panel");
                 }
                 if (!converted) control.contributeTemporary(param.args[0]);
+                maximum.after((MaximumPrivacyRequests.Snapshot) param.getObjectExtra(MAXIMUM_SNAPSHOT),
+                        control.suppresses(param.args[0]), converted);
             } catch (Throwable failure) { disable(failure); }
         }
 

@@ -32,14 +32,17 @@ class ToggleFileStore {
 
     private static ProtectionOptions readRules(byte[] bytes) throws IOException {
         try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(bytes))) {
-            if (input.readInt() != 0x50445031) throw new IOException("Invalid protection storage");
+            int format = input.readInt();
+            if (format != 0x50445031 && format != 0x50445032) throw new IOException("Invalid protection storage");
             boolean floating = decode(input.readByte()), split = decode(input.readByte());
             int count = input.readUnsignedShort();
             if (count > 256) throw new IOException("Too many app rules");
             TreeMap<String, AppRule> rules = new TreeMap<>();
             for (int i = 0; i < count; i++) {
                 String name = input.readUTF();
-                AppRule rule = new AppRule(input.readUnsignedByte(), input.readUnsignedByte());
+                int floatingRule = input.readUnsignedByte(), splitRule = input.readUnsignedByte();
+                boolean maximum = format == 0x50445032 && decode(input.readByte());
+                AppRule rule = new AppRule(floatingRule, splitRule, maximum);
                 if (rules.put(name, rule) != null) throw new IOException("Duplicate app rule");
             }
             if (input.available() != 0) throw new IOException("Trailing protection data");
@@ -70,7 +73,7 @@ class ToggleFileStore {
     private void write(File temporary, ProtectionOptions value) throws IOException {
         try (FileOutputStream output = new FileOutputStream(temporary)) {
             DataOutputStream data = new DataOutputStream(output);
-            if (!value.appRules.isEmpty()) data.writeInt(0x50445031);
+            if (!value.appRules.isEmpty()) data.writeInt(0x50445032);
             output.write(value.floating ? '1' : '0');
             output.write(value.split ? '1' : '0');
             if (!value.appRules.isEmpty()) {
@@ -79,6 +82,7 @@ class ToggleFileStore {
                     data.writeUTF(entry.getKey());
                     data.writeByte(entry.getValue().floating());
                     data.writeByte(entry.getValue().split());
+                    data.writeByte(entry.getValue().maximum() ? '1' : '0');
                 }
             }
             data.flush();

@@ -33,6 +33,10 @@ public final class DeviceControlProbe extends Instrumentation {
 
     private void probe(Bundle output) throws Exception {
         String operation = arguments.getString("operation", "list");
+        if ("panel_state".equals(operation)) {
+            panelState(output);
+            return;
+        }
         if ("handle_style".equals(operation)) {
             runOnMainSync(() -> styleProbe(output));
             return;
@@ -109,6 +113,20 @@ public final class DeviceControlProbe extends Instrumentation {
         output.putBoolean("inactive_native_style_restored", true);
         output.putBoolean("active_background_inset", true);
         stylePreview(output);
+    }
+
+    private void panelState(Bundle output) throws Exception {
+        var manager = getTargetContext().getPackageManager().getApplicationInfo("me.weishu.kernelsu", 0);
+        String daemon = manager.nativeLibraryDir + "/libksud.so";
+        Process process = new ProcessBuilder(daemon, "debug", "su", "-g").redirectErrorStream(true).start();
+        try {
+            process.getOutputStream().write("cat /sys/class/lcd/panel/screen_mode\nexit\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            process.getOutputStream().close();
+            require(process.waitFor(15, TimeUnit.SECONDS), "Panel read timed out");
+            String result = new String(process.getInputStream().readNBytes(2048), java.nio.charset.StandardCharsets.UTF_8).trim();
+            require(process.exitValue() == 0, "Panel read unavailable");
+            output.putString("panel_screen_mode", result);
+        } finally { process.destroy(); }
     }
 
     private void stylePreview(Bundle output) {

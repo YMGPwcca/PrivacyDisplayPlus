@@ -149,7 +149,8 @@ public final class MainActivity extends AppCompatActivity {
             status(R.string.status_not_applied, R.string.status_not_applied_detail, true);
             return;
         }
-        boolean enabled = ControlProtocol.readOptions(state).anyEnabled() || state.getInt(ControlProtocol.OVERRIDE_COUNT) > 0;
+        ProtectionOptions options = ControlProtocol.readOptions(state);
+        boolean enabled = options.anyEnabled() || options.hasMaximumRules() || state.getInt(ControlProtocol.OVERRIDE_COUNT) > 0;
         status(enabled ? R.string.status_on : R.string.status_off,
                 enabled ? R.string.status_on_detail : R.string.status_off_detail, false);
     }

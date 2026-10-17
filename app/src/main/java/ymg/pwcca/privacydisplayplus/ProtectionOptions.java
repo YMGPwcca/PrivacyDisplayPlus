@@ -56,6 +56,13 @@ final class ProtectionOptions {
         return appRules.values().stream().anyMatch(rule -> rule.floating() == AppRule.WINDOW || rule.split() == AppRule.WINDOW);
     }
 
+    boolean hasMaximumRules() { return appRules.values().stream().anyMatch(AppRule::maximum); }
+
+    boolean maximumFor(String name) {
+        AppRule rule = appRules.get(name);
+        return rule != null && rule.maximum();
+    }
+
     boolean allows(int windowingMode) {
         return switch (windowingMode) {
             case 5 -> floating;

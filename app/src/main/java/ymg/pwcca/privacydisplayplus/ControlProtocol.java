@@ -19,6 +19,7 @@ final class ControlProtocol {
     static final String TASK_BOUNDS = "task_bounds";
     static final String TASK_TOKEN = "task_token", OVERRIDE = "override", OVERRIDE_COUNT = "override_count";
     static final String RULE_PACKAGES = "rule_packages", RULE_FLOATING = "rule_floating", RULE_SPLIT = "rule_split";
+    static final String RULE_MAXIMUM = "rule_maximum";
     static final String ITEMS = "items", TOKEN = "token", PROTECTED = "protected", ERROR = "error";
     static final String TEMP_COUNT = "temporary_count", NATIVE_ALLOWED = "native_allowed";
     static final String GET_CONFIG = "get_config";
@@ -28,29 +29,38 @@ final class ControlProtocol {
     static final String READY = "ready";
     static final String HEALTHY = "healthy";
     static final String VERSION = "version";
-    // Earlier hooks do not update the panel-edge clamp in the drag transaction.
-    static final int VERSION_CODE = 14;
+    // Earlier hooks cannot apply per-app Maximum privacy rules.
+    static final int VERSION_CODE = 15;
 
     static boolean hasOptions(Bundle bundle) {
         return bundle != null && bundle.containsKey(FLOATING) && bundle.containsKey(SPLIT)
-                && bundle.containsKey(RULE_PACKAGES) && bundle.containsKey(RULE_FLOATING) && bundle.containsKey(RULE_SPLIT);
+                && bundle.containsKey(RULE_PACKAGES) && bundle.containsKey(RULE_FLOATING)
+                && bundle.containsKey(RULE_SPLIT) && bundle.containsKey(RULE_MAXIMUM);
     }
 
     static ProtectionOptions readOptions(Bundle bundle) {
         if (!hasOptions(bundle)) throw new IllegalArgumentException("Missing window preferences");
         String[] names = bundle.getStringArray(RULE_PACKAGES);
         int[] floating = bundle.getIntArray(RULE_FLOATING), split = bundle.getIntArray(RULE_SPLIT);
-        if (names == null || floating == null || split == null || names.length > 256
-                || names.length != floating.length || names.length != split.length) {
-            throw new IllegalArgumentException("Invalid app rules");
-        }
+        boolean[] maximum = bundle.getBooleanArray(RULE_MAXIMUM);
+        validateRules(names, floating, split, maximum);
         java.util.Map<String, AppRule> rules = new java.util.TreeMap<>();
         for (int i = 0; i < names.length; i++) {
-            if (rules.put(names[i], new AppRule(floating[i], split[i])) != null) {
+            if (rules.put(names[i], new AppRule(floating[i], split[i], maximum[i])) != null) {
                 throw new IllegalArgumentException("Duplicate app rule");
             }
         }
         return new ProtectionOptions(bundle.getBoolean(FLOATING), bundle.getBoolean(SPLIT), rules);
+    }
+
+    private static void validateRules(String[] names, int[] floating, int[] split, boolean[] maximum) {
+        if (names == null || floating == null || split == null || maximum == null) {
+            throw new IllegalArgumentException("Missing app rule arrays");
+        }
+        int count = names.length;
+        if (count > 256 || count != floating.length || count != split.length || count != maximum.length) {
+            throw new IllegalArgumentException("Invalid app rule lengths");
+        }
     }
 
     static void writeOptions(Bundle bundle, ProtectionOptions options) {
@@ -58,14 +68,17 @@ final class ControlProtocol {
         bundle.putBoolean(SPLIT, options.split);
         String[] names = options.appRules.keySet().toArray(new String[0]);
         int[] floating = new int[names.length], split = new int[names.length];
+        boolean[] maximum = new boolean[names.length];
         for (int i = 0; i < names.length; i++) {
             AppRule rule = options.appRules.get(names[i]);
             floating[i] = rule.floating();
             split[i] = rule.split();
+            maximum[i] = rule.maximum();
         }
         bundle.putStringArray(RULE_PACKAGES, names);
         bundle.putIntArray(RULE_FLOATING, floating);
         bundle.putIntArray(RULE_SPLIT, split);
+        bundle.putBooleanArray(RULE_MAXIMUM, maximum);
     }
     private ControlProtocol() {}
 }

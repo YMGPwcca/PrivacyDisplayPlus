@@ -12,6 +12,40 @@ import static org.junit.Assert.*;
 public class ToggleFileStoreTest {
     @Rule public TemporaryFolder temporary = new TemporaryFolder();
 
+    @Test public void maximumOnlyAndMixedRulesSurviveReopening() throws Exception {
+        File target = new File(temporary.getRoot(), "maximum");
+        ProtectionOptions options = ProtectionOptions.NONE.withRule("example.bank", new AppRule(0, 0, true))
+                .withRule("example.chat", new AppRule(1, 2, false));
+        assertTrue(new ToggleFileStore(target).save(options));
+        assertTrue(new ToggleFileStore(target).read().sameAs(options));
+    }
+
+    @Test public void oldRuleFormatMigratesWithoutEnablingMaximum() throws Exception {
+        File target = new File(temporary.getRoot(), "old-rules");
+        try (var data = new java.io.DataOutputStream(new java.io.FileOutputStream(target))) {
+            data.writeInt(0x50445031);
+            data.writeBytes("10");
+            data.writeShort(1);
+            data.writeUTF("example.bank");
+            data.writeByte(2);
+            data.writeByte(1);
+        }
+        ProtectionOptions previous = new ToggleFileStore(target).read();
+        assertEquals(new AppRule(2, 1, false), previous.appRules.get("example.bank"));
+        assertTrue(new ToggleFileStore(target).save(previous.withRule("example.bank", new AppRule(2, 1, true))));
+        assertTrue(new ToggleFileStore(target).read().maximumFor("example.bank"));
+    }
+
+    @Test public void malformedMaximumFlagIsRejected() throws Exception {
+        File target = new File(temporary.getRoot(), "invalid-maximum");
+        ToggleFileStore store = new ToggleFileStore(target);
+        assertTrue(store.save(ProtectionOptions.BOTH.withRule("example.bank", new AppRule(0, 0, true))));
+        byte[] bytes = Files.readAllBytes(target.toPath());
+        bytes[bytes.length - 1] = '2';
+        Files.write(target.toPath(), bytes);
+        try { store.read(); fail("Invalid Maximum value accepted"); } catch (IOException expected) { }
+    }
+
     @Test public void appRulesAndGlobalsSurviveOneAtomicRoundTrip() throws Exception {
         File target = new File(temporary.getRoot(), "rules");
         ProtectionOptions options = new ProtectionOptions(false, true)

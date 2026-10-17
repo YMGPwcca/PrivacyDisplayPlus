@@ -8,6 +8,18 @@ import static org.junit.Assert.*;
 public class AppRulesTest {
     private static final String APP = "example.bank";
 
+    @Test public void maximumOnlyRuleIsRetainedWithoutEnablingWindowRouting() {
+        ProtectionOptions options = ProtectionOptions.NONE.withRule(APP, new AppRule(0, 0, true));
+        assertTrue(options.hasMaximumRules());
+        assertTrue(options.maximumFor(APP));
+        assertFalse(options.maximumFor("example.other"));
+        assertFalse(options.anyEnabled());
+        assertFalse(options.forApp(APP, 0).anyEnabled());
+        assertTrue(options.withDefaults(true, false).maximumFor(APP));
+        assertFalse(options.sameAs(ProtectionOptions.NONE));
+        assertFalse(options.withRule(APP, AppRule.INHERIT).hasMaximumRules());
+    }
+
     @Test public void independentAppChoicesOverrideOnlyTheirOwnWindowMode() {
         ProtectionOptions options = new ProtectionOptions(true, false, Map.of(APP,
                 new AppRule(AppRule.FULL_SCREEN, AppRule.WINDOW)));

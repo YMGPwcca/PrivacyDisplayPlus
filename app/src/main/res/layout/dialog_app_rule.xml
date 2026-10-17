@@ -17,6 +17,15 @@
             android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"
             android:importantForAutofill="no" android:contentDescription="@string/split_title" />
     </com.google.android.material.textfield.TextInputLayout>
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/rule_maximum"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:minHeight="48dp" android:layout_marginTop="16dp"
+        android:text="@string/maximum_privacy_title" />
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/maximum_privacy_explanation"
+        android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+        android:textColor="?attr/colorOnSurfaceVariant" />
     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"
         android:text="@string/rule_explanation" android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
         android:textColor="?attr/colorOnSurfaceVariant" />
