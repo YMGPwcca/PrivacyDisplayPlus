@@ -29,6 +29,7 @@ public final class MainActivity extends AppCompatActivity {
     private Button reboot;
     private TextView statusTitle, statusDetail, rebootStatus;
     private boolean rendering, busy;
+    private int settingsGeneration;
     private final Runnable rootStateListener = () -> runOnUiThread(this::renderRootState);
 
     @Override public void onCreate(Bundle state) {
@@ -143,10 +144,11 @@ public final class MainActivity extends AppCompatActivity {
         ((TextView) row.findViewById(R.id.action_title)).setText(title);
         ((TextView) row.findViewById(R.id.action_detail)).setText(detail);
         row.setContentDescription(getString(title) + ". " + getString(detail));
-        row.setOnClickListener(view -> action.run());
+        row.setOnClickListener(view -> { if (!busy) action.run(); });
     }
 
     private void saveAndApply(ProtectionOptions desired) {
+        int request = ++settingsGeneration;
         setBusy(true);
         worker.execute(() -> {
             ProtectionOptions committed = ModulePreferences.update(this,
@@ -155,15 +157,15 @@ public final class MainActivity extends AppCompatActivity {
                                     desired.notificationCenterMaximum, desired.quickSettingsMaximum));
             boolean saved = committed != null;
             runOnUiThread(() -> {
+                if (isDestroyed() || request != settingsGeneration) return;
                 if (!saved) {
-                    if (isDestroyed()) return;
                     renderSavedChoice();
                     status(R.string.status_save_failed, R.string.status_save_failed_detail, true);
                     setBusy(false);
                     return;
                 }
                 control.set(committed, (acknowledged, state) -> {
-                    if (isDestroyed()) return;
+                    if (isDestroyed() || request != settingsGeneration) return;
                     renderRuntime(acknowledged, state);
                     setBusy(false);
                 });
@@ -210,7 +212,8 @@ public final class MainActivity extends AppCompatActivity {
 
     private void setBusy(boolean value) {
         busy = value;
-        boolean available = !value && !RootCommandRunner.state().isRunning() && supported();
+        // Saving is asynchronous; keep controls visually stable while the worker serializes changes.
+        boolean available = !RootCommandRunner.state().isRunning() && supported();
         floatingToggle.setEnabled(available);
         splitToggle.setEnabled(available);
         notificationCenterLevel.setEnabled(available);
@@ -220,6 +223,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void confirmSoftReboot() {
+        if (busy) return;
         new MaterialAlertDialogBuilder(this).setTitle(R.string.reboot_dialog_title)
                 .setMessage(R.string.reboot_dialog_message)
                 .setNegativeButton(R.string.cancel, null)
