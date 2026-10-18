@@ -1,12 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Privacy Display+</string>
-    <string name="module_description">Control Samsung Privacy Display by app and protect floating or split windows.</string>
+    <string name="module_description">Control Samsung Privacy Display by app, window, and system panel.</string>
     <string-array name="xposed_scope"><item>android</item><item>com.android.systemui</item></string-array>
     <string name="floating_title">Floating windows</string>
     <string name="floating_description">Keep privacy within the selected app\u2019s floating window.</string>
     <string name="split_title">Split screen</string>
     <string name="split_description">Keep privacy within the selected app\u2019s split-screen pane.</string>
+    <string name="system_panels_section">System panels</string>
+    <string name="notification_center_title">Notification Center</string>
+    <string name="notification_center_description">Protect notifications while this panel is open.</string>
+    <string name="quick_settings_title">Quick Settings</string>
+    <string name="quick_settings_description">Protect Quick Settings while this panel is open.</string>
+    <string name="notification_center_level_description">Notification Center protection: %1$s</string>
+    <string name="quick_settings_level_description">Quick Settings protection: %1$s</string>
+    <string-array name="panel_privacy_levels">
+        <item>Off</item>
+        <item>On</item>
+        <item>Maximum</item>
+    </string-array>
     <string name="status_connecting">Checking connection</string>
     <string name="status_connecting_detail">Connecting to the active module.</string>
     <string name="status_on">Active</string>
@@ -15,15 +27,14 @@
     <string name="status_off_detail">Selected apps can enable full-screen privacy.</string>
     <string name="status_pending">Setup required</string>
     <string name="status_pending_detail">Select System Framework and System UI in LSPosed, then soft reboot.</string>
-    <string name="status_failed">Module paused</string>
-    <string name="status_failed_detail">An error stopped the override. Soft reboot to reload it.</string>
-    <string name="status_not_applied">Change pending</string>
+    <string name="status_failed">Error</string>
+    <string name="status_failed_detail">Change failed. Soft reboot to reload the module.</string>
     <string name="status_not_applied_detail">Your settings are saved. Soft reboot to apply them.</string>
     <string name="status_unsupported">Unsupported software</string>
     <string name="status_unsupported_detail">This Android build is not supported yet.</string>
     <string name="status_saving">Applying change</string>
-    <string name="status_save_failed">Could not save</string>
-    <string name="status_save_failed_detail">Your previous settings are unchanged. Reopen the app and try again.</string>
+    <string name="status_save_failed">Error</string>
+    <string name="status_save_failed_detail">Settings unchanged. Reopen the app and retry.</string>
     <string name="settings_section">Settings</string>
     <string name="soft_reboot">Soft reboot</string>
     <string name="reboot_root_hint">Requires root. Running apps will close.</string>
@@ -40,7 +51,7 @@
     <string name="samsung_hint">Choose apps in Samsung Privacy Display. Other privacy settings remain in effect.</string>
     <string name="help">Help</string>
     <string name="help_title">Using Privacy Display+</string>
-    <string name="help_message">Getting started\nEnable Privacy Display+ in LSPosed and select System Framework and System UI. Return here and tap Soft reboot.\n\nChoose your apps\nOpen Settings → Display → Privacy display → Conditions for turning on → Apps. Turn on conditions and choose the apps you want to protect.\n\nWindow protection\nFloating windows and Split screen work independently. Changes apply immediately while the app shows Active. Turning either switch off restores Samsung defaults for that window type. Full-screen apps and other Samsung privacy conditions keep their usual behavior.\n\nApp rules\nChoose Default, Window only or Full screen separately for each window type. Default follows the switches on the home screen. Enable Maximum privacy protection in an app rule to request the shared Maximum level while that app is protected. Other protected windows share this level. When the request ends, your Samsung level applies again.\n\nPopup handle\nOpen a floating window’s handle menu and tap the phone-and-shield button. A filled background means protection is on. The choice lasts for that floating session. Other Samsung conditions can still protect the whole screen.\n\nSoft reboot\nSave your work first: running apps will close. This uses the supported KernelSU userspace reload command, with no full-reboot fallback. Grant root access when asked. Other root managers do not support this button.\n\nCompatibility\nSupport is limited to the firmware listed in the project’s support guide. Recents cards and Picture-in-Picture are not included.\n\nAbout\nPrivacy Display+ %1$s</string>
+    <string name="help_message">Getting started\nEnable Privacy Display+ in LSPosed and select System Framework and System UI. Return here and tap Soft reboot.\n\nChoose your apps\nOpen Settings → Display → Privacy display → Conditions for turning on → Apps. Turn on conditions and choose the apps you want to protect.\n\nWindow protection\nFloating windows and Split screen work independently. Changes apply immediately while the app shows Active. Turning either switch off restores Samsung defaults for that window type. Full-screen apps and other Samsung privacy conditions keep their usual behavior.\n\nSystem panels\nChoose Off, On, or Maximum independently for Notification Center and Quick Settings. Each option affects only its own open panel. Maximum also requests the shared screen level and may dim the rest of the display.\n\nApp rules\nChoose Default, Window only or Full screen separately for each window type. Default follows the switches on the home screen. Enable Maximum privacy protection in an app rule to request the shared Maximum level while that app is protected. Other protected windows share this level.\n\nPopup handle\nOpen a floating window’s handle menu and tap the phone-and-shield button. The choice lasts for that floating session. Other Samsung conditions can still protect the whole screen.\n\nSoft reboot\nSave your work first: running apps will close. This uses the supported KernelSU userspace reload command, with no full-reboot fallback. Grant root access when asked. Temporary root may need to be re-established after a device reboot.\n\nCompatibility\nSupport is limited to the firmware listed in the project’s support guide. Recents cards and Picture-in-Picture are not included.\n\nAbout\nPrivacy Display+ %1$s</string>
     <string name="understood">Got it</string>
     <string name="back">Back</string>
     <string name="refresh">Refresh</string>
@@ -61,4 +72,5 @@
     <string name="rules_ready">Tap an app to change its rules. Changes apply immediately.</string>
     <string name="no_selected_apps">No apps selected. Choose apps in Samsung Privacy Display settings, then tap Refresh.</string>
     <string name="feature_unavailable">The current module is not connected. Enable System Framework in LSPosed and soft reboot after updating, then tap Refresh.</string>
+    <string name="rule_maximum_description">Use Maximum while protected. All protected windows share this level.</string>
 </resources>

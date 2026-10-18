@@ -1,11 +1,15 @@
 package ymg.pwcca.privacydisplayplus;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
 import com.google.android.material.appbar.MaterialToolbar;
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.WindowInsets;
@@ -19,6 +23,9 @@ public final class MainActivity extends AppCompatActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private ControlClient control;
     private MaterialSwitch floatingToggle, splitToggle;
+    private SettingsChoiceMenu notificationCenterLevel, quickSettingsLevel;
+    private PanelPrivacyLevel notificationCenterMode = PanelPrivacyLevel.OFF;
+    private PanelPrivacyLevel quickSettingsMode = PanelPrivacyLevel.OFF;
     private Button reboot;
     private TextView statusTitle, statusDetail, rebootStatus;
     private boolean rendering, busy;
@@ -26,6 +33,9 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        DynamicColors.applyToActivityIfAvailable(this);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        setSystemBarIconAppearance();
         setContentView(R.layout.activity_main);
         control = new ControlClient(this);
         floatingToggle = findViewById(R.id.popup_toggle);
@@ -41,6 +51,8 @@ public final class MainActivity extends AppCompatActivity {
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return insets;
         });
+        notificationCenterLevel = setupPanelLevel(R.id.notification_center_level, true);
+        quickSettingsLevel = setupPanelLevel(R.id.quick_settings_level, false);
         renderSavedChoice();
         floatingToggle.setOnCheckedChangeListener((view, checked) -> {
             if (!rendering) saveAndApply(currentChoice());
@@ -85,16 +97,45 @@ public final class MainActivity extends AppCompatActivity {
 
     private boolean supported() { return FirmwareProfile.supports(Build.VERSION.SDK_INT, Build.FINGERPRINT); }
 
+    private void setSystemBarIconAppearance() {
+        boolean light = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                != Configuration.UI_MODE_NIGHT_YES;
+        var bars = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        bars.setAppearanceLightStatusBars(light);
+        bars.setAppearanceLightNavigationBars(light);
+    }
+
     private void renderSavedChoice() {
-        rendering = true;
         ProtectionOptions options = ModulePreferences.options(this);
+        rendering = true;
         floatingToggle.setChecked(options.floating);
         splitToggle.setChecked(options.split);
+        notificationCenterMode = PanelPrivacyLevel.fromSaved(options.notificationCenter, options.notificationCenterMaximum);
+        quickSettingsMode = PanelPrivacyLevel.fromSaved(options.quickSettings, options.quickSettingsMaximum);
+        notificationCenterLevel.setSelection(notificationCenterMode.menuIndex);
+        quickSettingsLevel.setSelection(quickSettingsMode.menuIndex);
         rendering = false;
     }
 
+    private SettingsChoiceMenu setupPanelLevel(int id, boolean center) {
+        int title = center ? R.string.notification_center_title : R.string.quick_settings_title;
+        int description = center ? R.string.notification_center_description : R.string.quick_settings_description;
+        return new SettingsChoiceMenu(findViewById(id), title, description,
+                getResources().getStringArray(R.array.panel_privacy_levels), position -> {
+            if (rendering) return;
+            PanelPrivacyLevel selected = PanelPrivacyLevel.fromMenu(position);
+            if (center) notificationCenterMode = selected;
+            else quickSettingsMode = selected;
+            saveAndApply(currentChoice());
+        });
+    }
+
+
     private ProtectionOptions currentChoice() {
-        return ModulePreferences.options(this).withDefaults(floatingToggle.isChecked(), splitToggle.isChecked());
+        return ModulePreferences.options(this)
+                .withDefaults(floatingToggle.isChecked(), splitToggle.isChecked())
+                .withPanelPrivacy(notificationCenterMode.enabled, quickSettingsMode.enabled,
+                        notificationCenterMode.maximum, quickSettingsMode.maximum);
     }
 
     private void actionRow(int id, int title, int detail, Runnable action) {
@@ -107,10 +148,11 @@ public final class MainActivity extends AppCompatActivity {
 
     private void saveAndApply(ProtectionOptions desired) {
         setBusy(true);
-        status(R.string.status_saving, R.string.status_connecting_detail, false);
         worker.execute(() -> {
             ProtectionOptions committed = ModulePreferences.update(this,
-                    previous -> previous.withDefaults(desired.floating, desired.split));
+                    previous -> previous.withDefaults(desired.floating, desired.split)
+                            .withPanelPrivacy(desired.notificationCenter, desired.quickSettings,
+                                    desired.notificationCenterMaximum, desired.quickSettingsMaximum));
             boolean saved = committed != null;
             runOnUiThread(() -> {
                 if (!saved) {
@@ -140,10 +182,14 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         if (!matchesSaved(acknowledged, state)) {
-            status(R.string.status_not_applied, R.string.status_not_applied_detail, true);
+            status(R.string.status_failed, R.string.status_not_applied_detail, true);
             return;
         }
         ProtectionOptions options = ControlProtocol.readOptions(state);
+        if ((options.notificationCenter || options.quickSettings) && !state.getBoolean(ControlProtocol.SHADE_READY)) {
+            status(R.string.status_pending, R.string.status_pending_detail, false);
+            return;
+        }
         boolean enabled = options.anyEnabled() || options.hasMaximumRules() || state.getInt(ControlProtocol.OVERRIDE_COUNT) > 0;
         status(enabled ? R.string.status_on : R.string.status_off,
                 enabled ? R.string.status_on_detail : R.string.status_off_detail, false);
@@ -157,9 +203,9 @@ public final class MainActivity extends AppCompatActivity {
     private void status(int title, int detail, boolean error) {
         statusTitle.setText(title);
         statusDetail.setText(detail);
-        int color = error ? R.color.error : R.color.text_primary;
-        if (!error && title == R.string.status_on) color = R.color.accent;
-        statusTitle.setTextColor(getColor(color));
+        statusTitle.setTextColor(MaterialColors.getColor(statusTitle, error
+                ? androidx.appcompat.R.attr.colorError
+                : com.google.android.material.R.attr.colorOnPrimaryContainer));
     }
 
     private void setBusy(boolean value) {
@@ -167,6 +213,8 @@ public final class MainActivity extends AppCompatActivity {
         boolean available = !value && !RootCommandRunner.state().isRunning() && supported();
         floatingToggle.setEnabled(available);
         splitToggle.setEnabled(available);
+        notificationCenterLevel.setEnabled(available);
+        quickSettingsLevel.setEnabled(available);
         findViewById(R.id.app_rules).setEnabled(available);
         reboot.setEnabled(available && !RootCommandRunner.state().isPending());
     }

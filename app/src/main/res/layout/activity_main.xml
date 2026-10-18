@@ -33,7 +33,8 @@
                             android:accessibilityLiveRegion="polite" />
                         <TextView android:id="@+id/status_detail"
                             android:layout_width="match_parent" android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp" android:text="@string/status_connecting_detail"
+                            android:minLines="2" android:layout_marginTop="4dp"
+                            android:text="@string/status_connecting_detail"
                             android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
                             android:textColor="?attr/colorOnPrimaryContainer" />
                     </LinearLayout>
@@ -99,6 +100,26 @@
                         android:layout_width="match_parent" android:layout_height="1dp"
                         app:dividerInsetStart="16dp" app:dividerInsetEnd="16dp" />
                     <include android:id="@+id/app_rules" layout="@layout/settings_action_row" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="20dp" android:layout_marginStart="8dp" android:layout_marginBottom="8dp"
+                android:text="@string/system_panels_section"
+                android:textAppearance="@style/TextAppearance.Material3.LabelLarge"
+                android:textColor="?attr/colorPrimary" android:accessibilityHeading="true" />
+            <com.google.android.material.card.MaterialCardView
+                style="@style/Widget.Material3.CardView.Filled"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                app:cardBackgroundColor="?attr/colorSurfaceContainer" app:cardElevation="0dp"
+                app:shapeAppearanceOverlay="@style/Shape.PrivacyDisplayPlus.Card">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical">
+                    <include android:id="@+id/notification_center_level" layout="@layout/settings_menu_row" />
+                    <com.google.android.material.divider.MaterialDivider
+                        android:layout_width="match_parent" android:layout_height="1dp"
+                        app:dividerInsetStart="16dp" app:dividerInsetEnd="16dp" />
+                    <include android:id="@+id/quick_settings_level" layout="@layout/settings_menu_row" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

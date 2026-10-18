@@ -5,8 +5,6 @@ import android.view.View;
 import android.widget.ScrollView;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.textfield.MaterialAutoCompleteTextView;
-import com.google.android.material.textfield.TextInputLayout;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.concurrent.ExecutorService;
@@ -54,13 +52,11 @@ public final class AppRulesActivity extends FeatureListActivity {
         ProtectionOptions saved = ModulePreferences.options(this);
         AppRule rule = saved.appRules.getOrDefault(name, AppRule.INHERIT);
         View content = getLayoutInflater().inflate(R.layout.dialog_app_rule, null);
-        MaterialAutoCompleteTextView floating = content.findViewById(R.id.rule_floating);
-        MaterialAutoCompleteTextView split = content.findViewById(R.id.rule_split);
         MaterialSwitch maximum = content.findViewById(R.id.rule_maximum);
         maximum.setChecked(rule.maximum());
         int[] choices = {rule.floating(), rule.split()};
-        setupChoice(floating, content.findViewById(R.id.rule_floating_input), saved.floating, choices, 0);
-        setupChoice(split, content.findViewById(R.id.rule_split_input), saved.split, choices, 1);
+        setupChoice(content.findViewById(R.id.rule_floating), R.string.floating_title, saved.floating, choices, 0);
+        setupChoice(content.findViewById(R.id.rule_split), R.string.split_title, saved.split, choices, 1);
         ScrollView scroll = new ScrollView(this);
         scroll.addView(content);
         new MaterialAlertDialogBuilder(this).setTitle(label(name)).setView(scroll)
@@ -70,14 +66,13 @@ public final class AppRulesActivity extends FeatureListActivity {
                 .show();
     }
 
-    private void setupChoice(MaterialAutoCompleteTextView view, TextInputLayout input, boolean fallback, int[] values, int index) {
+    private void setupChoice(View view, int title, boolean fallback, int[] values, int index) {
         String[] labels = {getString(R.string.rule_default_value, choice(fallback ? AppRule.WINDOW : AppRule.FULL_SCREEN)),
                 choice(AppRule.WINDOW), choice(AppRule.FULL_SCREEN)};
-        view.setSimpleItems(labels);
-        view.setText(labels[values[index]], false);
-        view.setOnItemClickListener((parent, item, position, id) -> values[index] = position);
-        view.setOnClickListener(ignored -> view.showDropDown());
-        input.setEndIconOnClickListener(ignored -> view.showDropDown());
+        String[] valueLabels = {choice(AppRule.DEFAULT), choice(AppRule.WINDOW), choice(AppRule.FULL_SCREEN)};
+        SettingsChoiceMenu menu = new SettingsChoiceMenu(view, title, 0, labels, valueLabels,
+                position -> values[index] = position);
+        menu.setSelection(values[index]);
     }
 
     private void save(String name, AppRule rule) {

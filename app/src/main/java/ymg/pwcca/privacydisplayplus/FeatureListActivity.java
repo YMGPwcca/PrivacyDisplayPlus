@@ -1,6 +1,9 @@
 package ymg.pwcca.privacydisplayplus;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
+import com.google.android.material.color.DynamicColors;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowInsets;
@@ -21,6 +24,13 @@ abstract class FeatureListActivity extends AppCompatActivity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        DynamicColors.applyToActivityIfAvailable(this);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        boolean light = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                != Configuration.UI_MODE_NIGHT_YES;
+        var insetsController = WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        insetsController.setAppearanceLightStatusBars(light);
+        insetsController.setAppearanceLightNavigationBars(light);
         setContentView(R.layout.activity_feature_list);
         control = new ControlClient(this);
         rows = findViewById(R.id.feature_rows);
