@@ -23,12 +23,18 @@ app on another Android version does not make its hooks compatible.
 
 - Independent floating-window and split-screen settings.
 - Per-app rules for apps selected in Samsung Privacy Display.
+- Independent Off/On/Maximum dropdowns for Notification Center and Quick
+  Settings. Maximum protects that panel and requests the shared display level
+  while open; it cannot select an independent per-panel brightness.
 - A Privacy Display button in Samsung's floating-window handle menu.
 - A separate Soft reboot button using KernelSU's supported `ksud soft-reboot`.
 
-The window protection and handle controls have been checked on the firmware
-above. Automated routing checks are separate from physical, off-axis viewing
-checks; a successful control response alone is not proof of optical protection.
+The new system-panel controls have policy, persistence, migration and layout
+checks. The owner confirmed the previous Notification Center protection worked.
+The newly added independent Quick Settings and per-panel Maximum routes require
+the owner-controlled hook reload and device trial. Control acknowledgement alone
+does not prove physical, off-axis protection. Samsung's Conditions for turning
+on must be enabled.
 
 ## Limits
 
@@ -45,11 +51,9 @@ checks; a successful control response alone is not proof of optical protection.
 - Work profiles, Secure Folder, external displays, Recents cards and
   Picture-in-Picture are not supported by the added window controls.
 - Brightness compensation and panel-driver modifications are not included.
-- Per-app Maximum rules choose a shared display level. Simultaneous windows
-  cannot select independent strengths through this implementation. The new
-  override has been checked with native hooks and rapid Discord switching on
-  the supported firmware. Screen off/on and the full multi-window matrix still
-  need device validation.
+- Maximum is a shared display level. An active app or open protected panel can
+  request it; individual panels cannot select independent levels. Screen-wide
+  dimming or color changes may accompany Maximum.
 - Rotation, scrolling handle menus, larger display scales and every combination
   of multiple protected windows have not been fully checked on a device.
 
@@ -71,8 +75,8 @@ and System UI, then soft reboot using your supported method.
 **Unsupported software:** compare your firmware with the table above. Changing
 the package name or enabling more LSPosed scopes will not add compatibility.
 
-**Whole screen protected:** check Samsung's manual toggle, app rules and other
-full-screen privacy conditions.
+**Whole screen protected:** check the System panels switches, Samsung's manual
+toggle, app rules and other full-screen privacy conditions.
 
 **Window not protected:** turn on Samsung's Conditions for turning on and check
 whether another protected window or notification is using a region.
