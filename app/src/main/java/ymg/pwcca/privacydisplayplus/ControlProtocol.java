@@ -13,6 +13,10 @@ final class ControlProtocol {
     static final String DRAG_QUERY = PACKAGE + ".DRAG_QUERY";
     static final String DRAG_STATE = PACKAGE + ".DRAG_STATE", DRAG_ACTIVE = "drag_active";
     static final String DRAG_ID = "drag_id";
+    static final String SHADE_QUERY = PACKAGE + ".SHADE_QUERY", SHADE_STATE = PACKAGE + ".SHADE_STATE";
+    static final String SHADE_OWNER = "shade_owner", SHADE_READY = "shade_ready";
+    static final String NOTIFICATION_CENTER_OPEN = "notification_center_open";
+    static final String QUICK_SETTINGS_OPEN = "quick_settings_open";
     static final String SURFACE = "surface", WINDOW_BOUNDS = "window_bounds", DISPLAY_BOUNDS = "display_bounds";
     static final String TASK_BOUNDS = "task_bounds";
     static final String CORNER_RADIUS = "corner_radius";
@@ -25,20 +29,26 @@ final class ControlProtocol {
     static final String ENABLED = "enabled";
     static final String FLOATING = "floating";
     static final String SPLIT = "split";
+    static final String NOTIFICATION_CENTER = "notification_center";
+    static final String QUICK_SETTINGS = "quick_settings";
+    static final String NOTIFICATION_CENTER_MAXIMUM = "notification_center_maximum";
+    static final String QUICK_SETTINGS_MAXIMUM = "quick_settings_maximum";
     static final String READY = "ready";
     static final String HEALTHY = "healthy";
     static final String VERSION = "version";
-    // Earlier hooks leave the compositor's shared region radius nonzero at the right edge.
-    static final int VERSION_CODE = 18;
+    // Adds independent privacy and Maximum choices for both system panels.
+    static final int VERSION_CODE = 20;
 
     static boolean hasOptions(Bundle bundle) {
         return bundle != null && bundle.containsKey(FLOATING) && bundle.containsKey(SPLIT)
+                && bundle.containsKey(NOTIFICATION_CENTER) && bundle.containsKey(QUICK_SETTINGS)
+                && bundle.containsKey(NOTIFICATION_CENTER_MAXIMUM) && bundle.containsKey(QUICK_SETTINGS_MAXIMUM)
                 && bundle.containsKey(RULE_PACKAGES) && bundle.containsKey(RULE_FLOATING)
                 && bundle.containsKey(RULE_SPLIT) && bundle.containsKey(RULE_MAXIMUM);
     }
 
     static ProtectionOptions readOptions(Bundle bundle) {
-        if (!hasOptions(bundle)) throw new IllegalArgumentException("Missing window preferences");
+        if (!hasOptions(bundle)) throw new IllegalArgumentException("Missing window or system-panel preferences");
         String[] names = bundle.getStringArray(RULE_PACKAGES);
         int[] floating = bundle.getIntArray(RULE_FLOATING), split = bundle.getIntArray(RULE_SPLIT);
         boolean[] maximum = bundle.getBooleanArray(RULE_MAXIMUM);
@@ -49,7 +59,9 @@ final class ControlProtocol {
                 throw new IllegalArgumentException("Duplicate app rule");
             }
         }
-        return new ProtectionOptions(bundle.getBoolean(FLOATING), bundle.getBoolean(SPLIT), rules);
+        return new ProtectionOptions(bundle.getBoolean(FLOATING), bundle.getBoolean(SPLIT),
+                bundle.getBoolean(NOTIFICATION_CENTER), bundle.getBoolean(QUICK_SETTINGS),
+                bundle.getBoolean(NOTIFICATION_CENTER_MAXIMUM), bundle.getBoolean(QUICK_SETTINGS_MAXIMUM), rules);
     }
 
     private static void validateRules(String[] names, int[] floating, int[] split, boolean[] maximum) {
@@ -65,6 +77,10 @@ final class ControlProtocol {
     static void writeOptions(Bundle bundle, ProtectionOptions options) {
         bundle.putBoolean(FLOATING, options.floating);
         bundle.putBoolean(SPLIT, options.split);
+        bundle.putBoolean(NOTIFICATION_CENTER, options.notificationCenter);
+        bundle.putBoolean(QUICK_SETTINGS, options.quickSettings);
+        bundle.putBoolean(NOTIFICATION_CENTER_MAXIMUM, options.notificationCenterMaximum);
+        bundle.putBoolean(QUICK_SETTINGS_MAXIMUM, options.quickSettingsMaximum);
         String[] names = options.appRules.keySet().toArray(new String[0]);
         int[] floating = new int[names.length], split = new int[names.length];
         boolean[] maximum = new boolean[names.length];

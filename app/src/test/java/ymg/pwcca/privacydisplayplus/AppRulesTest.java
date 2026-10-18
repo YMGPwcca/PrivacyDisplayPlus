@@ -69,6 +69,36 @@ public class AppRulesTest {
         try { options.appRules.clear(); fail(); } catch (UnsupportedOperationException expected) { }
     }
 
+    @Test public void panelMaximumChoicesDoNotEnablePrivacyOrWindowRouting() {
+        ProtectionOptions maximumOnly = ProtectionOptions.NONE.withPanelPrivacy(false, false, true, true);
+        assertFalse(maximumOnly.anyEnabled());
+        assertFalse(maximumOnly.allows(5));
+        assertFalse(maximumOnly.mayRoute(5));
+        assertFalse(maximumOnly.mayRoute(6));
+        assertTrue(maximumOnly.withDefaults(true, false).notificationCenterMaximum);
+        assertTrue(maximumOnly.withRule(APP, new AppRule(1, 1)).forApp(APP, 0).quickSettingsMaximum);
+    }
+
+    @Test public void panelChoicesDoNotSelectAppWindowsButExplicitAppRulesStillApply() {
+        ProtectionOptions panelsOnly = ProtectionOptions.NONE.withPanelPrivacy(true, true, true, true);
+        assertTrue(panelsOnly.anyEnabled());
+        assertFalse(panelsOnly.allows(5));
+        assertFalse(panelsOnly.mayRoute(5));
+        assertFalse(panelsOnly.mayRoute(6));
+
+        ProtectionOptions withApp = panelsOnly.withRule(APP, new AppRule(1, 2));
+        assertTrue(withApp.mayRoute(5));
+        ProtectionOptions appOptions = withApp.forApp(APP, 0);
+        assertTrue(appOptions.allows(5));
+        assertFalse(appOptions.allows(6));
+        assertTrue(appOptions.notificationCenter);
+        assertTrue(appOptions.quickSettings);
+        assertTrue(appOptions.notificationCenterMaximum);
+        assertTrue(appOptions.quickSettingsMaximum);
+        assertFalse(withApp.forApp("example.unselected", 0).allows(5));
+    }
+
+
     @Test public void equalityIncludesRulesAndNullWindowPackageUsesDefaults() {
         assertFalse(ProtectionOptions.BOTH.sameAs(ProtectionOptions.BOTH.withRule(APP, new AppRule(2, 2))));
         assertSame(ProtectionOptions.BOTH, ProtectionOptions.BOTH.forApp(null, 0));

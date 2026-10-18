@@ -18,13 +18,15 @@ final class ModuleControl {
     private final RuntimeGate gate;
     private final ReflectivePolicyAccess access;
     private final WindowFeatures features;
+    private final NotificationShadeHook shade;
     private final AtomicBoolean scheduled = new AtomicBoolean();
     private volatile Object service;
 
-    ModuleControl(RuntimeGate gate, ReflectivePolicyAccess access, WindowFeatures features) {
+    ModuleControl(RuntimeGate gate, ReflectivePolicyAccess access, WindowFeatures features, NotificationShadeHook shade) {
         this.gate = gate;
         this.access = access;
         this.features = features;
+        this.shade = shade;
     }
 
     void observeWindow(Object window) throws ReflectiveOperationException {
@@ -75,6 +77,7 @@ final class ModuleControl {
         filter.addAction(ControlProtocol.HANDLE_SET);
         filter.addAction(ControlProtocol.DRAG_QUERY);
         filter.addAction(ControlProtocol.DRAG_STATE);
+        filter.addAction(ControlProtocol.SHADE_STATE);
         context.registerReceiver(new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
                 if (!isOrderedBroadcast()) return;
@@ -85,20 +88,26 @@ final class ModuleControl {
                 handlePopup(this, intent);
             }
         }, filter, "android.permission.MANAGE_ACTIVITY_TASKS", null, Context.RECEIVER_EXPORTED);
+        context.sendBroadcast(new Intent(ControlProtocol.SHADE_QUERY).setPackage(HandleCaller.PACKAGE),
+                "android.permission.MANAGE_ACTIVITY_TASKS");
     }
 
     private void handlePopup(BroadcastReceiver receiver, Intent intent) {
         Bundle reply = new Bundle();
         int result = Activity.RESULT_CANCELED;
         try {
-            requireHandleReady(intent);
-            Object current = service;
-            synchronized (access.globalLock(current)) {
-                Object controller = access.controllerForService(current);
-                synchronized (access.lock(controller)) {
-                    boolean mutate = ControlProtocol.HANDLE_SET.equals(intent.getAction());
-                    reply = popupReply(controller, intent, mutate);
-                    if (mutate || ControlProtocol.DRAG_STATE.equals(intent.getAction())) access.requestTraversal(current);
+            if (ControlProtocol.SHADE_STATE.equals(intent.getAction())) {
+                updateShade(intent);
+            } else {
+                requireHandleReady(intent);
+                Object current = service;
+                synchronized (access.globalLock(current)) {
+                    Object controller = access.controllerForService(current);
+                    synchronized (access.lock(controller)) {
+                        boolean mutate = ControlProtocol.HANDLE_SET.equals(intent.getAction());
+                        reply = popupReply(controller, intent, mutate);
+                        if (mutate || ControlProtocol.DRAG_STATE.equals(intent.getAction())) access.requestTraversal(current);
+                    }
                 }
             }
             result = Activity.RESULT_OK;
@@ -107,6 +116,18 @@ final class ModuleControl {
         }
         reply.putInt(ControlProtocol.VERSION, ControlProtocol.VERSION_CODE);
         receiver.setResult(result, null, reply);
+    }
+
+    private void updateShade(Intent intent) throws ReflectiveOperationException {
+        if (intent.getIntExtra(ControlProtocol.VERSION, -1) != ControlProtocol.VERSION_CODE) {
+            throw new IllegalArgumentException("Incompatible shade version");
+        }
+        Object current = service;
+        if (!gate.isHealthy() || current == null) throw new IllegalStateException("Not ready");
+        synchronized (access.globalLock(current)) {
+            shade.update(current, intent.getExtras());
+            access.requestTraversal(current);
+        }
     }
 
     private Bundle popupReply(Object controller, Intent intent, boolean mutate) throws ReflectiveOperationException {
@@ -178,6 +199,7 @@ final class ModuleControl {
         status.putInt(ControlProtocol.VERSION, ControlProtocol.VERSION_CODE);
         status.putBoolean(ControlProtocol.READY, gate.isReady());
         status.putBoolean(ControlProtocol.HEALTHY, gate.isHealthy());
+        status.putBoolean(ControlProtocol.SHADE_READY, shade.connected());
         ControlProtocol.writeOptions(status, gate.options());
         status.putInt(ControlProtocol.TEMP_COUNT, features.count());
         status.putInt(ControlProtocol.OVERRIDE_COUNT, features.overrideCount());

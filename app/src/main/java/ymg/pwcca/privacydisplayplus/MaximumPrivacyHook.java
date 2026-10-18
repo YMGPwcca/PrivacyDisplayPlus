@@ -13,6 +13,7 @@ final class MaximumPrivacyHook {
     private final ReflectivePolicyAccess access;
     private final RuntimeGate gate;
     private final MaximumPrivacyRequests requests;
+    private final NotificationShadeHook panels;
     private final Field policyService, policyDisplay, displayId, currentUser, displayState;
     private final Field temporaryOff, fixedOff, requestedFull, appliedFull, appliedTasks, aiqe, showUser;
     private final Method begin, finish, applyPartial, writeLevel, notifyAiqe, setPd, applyState;
@@ -23,10 +24,11 @@ final class MaximumPrivacyHook {
     private boolean inLayout;
     private boolean reportedFailure;
 
-    MaximumPrivacyHook(ClassLoader loader, ReflectivePolicyAccess access, RuntimeGate gate)
+    MaximumPrivacyHook(ClassLoader loader, ReflectivePolicyAccess access, RuntimeGate gate, NotificationShadeHook panels)
             throws ReflectiveOperationException {
         this.access = access;
         this.gate = gate;
+        this.panels = panels;
         requests = new MaximumPrivacyRequests(access);
         Class<?> policy = Class.forName("com.android.server.wm.DisplayPolicy", false, loader);
         Class<?> controller = Class.forName("com.android.server.wm.PrivacyDisplayController", false, loader);
@@ -186,7 +188,9 @@ final class MaximumPrivacyHook {
         MaximumPrivacyState state = new MaximumPrivacyState(currentUser.getInt(controller), access.mode(controller),
                 displayState.getInt(controller), temporaryOff.getInt(controller), fixedOff.getInt(controller));
         if (!state.allowsOverride()) return false;
-        return requests.wantsMaximum(gate.options(), requestedFull.getBoolean(controller), (Set<?>) appliedTasks.get(controller));
+        boolean panelMaximum = panels.maximumRequested() && requestedFull.getBoolean(controller);
+        return requests.wantsMaximum(gate.options(), requestedFull.getBoolean(controller),
+                (Set<?>) appliedTasks.get(controller)) || panelMaximum;
     }
 
     private void refresh(Object controller) throws ReflectiveOperationException {

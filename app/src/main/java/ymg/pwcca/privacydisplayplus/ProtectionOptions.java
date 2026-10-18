@@ -5,19 +5,32 @@ import java.util.TreeMap;
 
 /** One immutable configuration shared by persistence, live control and routing. */
 final class ProtectionOptions {
-    static final ProtectionOptions BOTH = new ProtectionOptions(true, true);
-    static final ProtectionOptions NONE = new ProtectionOptions(false, false);
+    static final ProtectionOptions BOTH = new ProtectionOptions(true, true, false, false, false, false, Map.of());
+    static final ProtectionOptions NONE = new ProtectionOptions(false, false, false, false, false, false, Map.of());
     final boolean floating;
     final boolean split;
+    final boolean notificationCenter;
+    final boolean quickSettings;
+    final boolean notificationCenterMaximum;
+    final boolean quickSettingsMaximum;
     final Map<String, AppRule> appRules;
 
     ProtectionOptions(boolean floating, boolean split) {
-        this(floating, split, Map.of());
+        this(floating, split, false, false, false, false, Map.of());
     }
 
     ProtectionOptions(boolean floating, boolean split, Map<String, AppRule> rules) {
+        this(floating, split, false, false, false, false, rules);
+    }
+
+    ProtectionOptions(boolean floating, boolean split, boolean notificationCenter, boolean quickSettings,
+                      boolean notificationCenterMaximum, boolean quickSettingsMaximum, Map<String, AppRule> rules) {
         this.floating = floating;
         this.split = split;
+        this.notificationCenter = notificationCenter;
+        this.quickSettings = quickSettings;
+        this.notificationCenterMaximum = notificationCenterMaximum;
+        this.quickSettingsMaximum = quickSettingsMaximum;
         if (rules.size() > 256) throw new IllegalArgumentException("Too many app rules");
         TreeMap<String, AppRule> copy = new TreeMap<>();
         rules.forEach((name, rule) -> {
@@ -38,21 +51,30 @@ final class ProtectionOptions {
         if (name == null) return this;
         AppRule rule = userId == 0 ? appRules.get(name) : null;
         if (rule == null) return this;
-        return new ProtectionOptions(rule.floating(floating), rule.split(split));
+        return new ProtectionOptions(rule.floating(floating), rule.split(split), notificationCenter, quickSettings,
+                notificationCenterMaximum, quickSettingsMaximum, Map.of());
+    }
+
+    ProtectionOptions withPanelPrivacy(boolean notificationCenter, boolean quickSettings,
+                                       boolean notificationCenterMaximum, boolean quickSettingsMaximum) {
+        return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
+                quickSettingsMaximum, appRules);
     }
 
     ProtectionOptions withRule(String name, AppRule rule) {
         Map<String, AppRule> copy = new TreeMap<>(appRules);
         copy.put(name, rule);
-        return new ProtectionOptions(floating, split, copy);
+        return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
+                quickSettingsMaximum, copy);
     }
 
     ProtectionOptions withDefaults(boolean floating, boolean split) {
-        return new ProtectionOptions(floating, split, appRules);
+        return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
+                quickSettingsMaximum, appRules);
     }
 
     boolean anyEnabled() {
-        if (floating || split) return true;
+        if (floating || split || notificationCenter || quickSettings) return true;
         return appRules.values().stream().anyMatch(rule -> rule.floating() == AppRule.WINDOW || rule.split() == AppRule.WINDOW);
     }
 
@@ -79,6 +101,9 @@ final class ProtectionOptions {
     }
 
     boolean sameAs(ProtectionOptions other) {
-        return floating == other.floating && split == other.split && appRules.equals(other.appRules);
+        return floating == other.floating && split == other.split
+                && notificationCenter == other.notificationCenter && quickSettings == other.quickSettings
+                && notificationCenterMaximum == other.notificationCenterMaximum
+                && quickSettingsMaximum == other.quickSettingsMaximum && appRules.equals(other.appRules);
     }
 }

@@ -31,6 +31,7 @@ public class ToggleFileStoreTest {
             data.writeByte(1);
         }
         ProtectionOptions previous = new ToggleFileStore(target).read();
+        assertFalse(previous.notificationCenter);
         assertEquals(new AppRule(2, 1, false), previous.appRules.get("example.bank"));
         assertTrue(new ToggleFileStore(target).save(previous.withRule("example.bank", new AppRule(2, 1, true))));
         assertTrue(new ToggleFileStore(target).read().maximumFor("example.bank"));
@@ -54,14 +55,31 @@ public class ToggleFileStoreTest {
         assertTrue(new ToggleFileStore(target).read().sameAs(options));
     }
 
-    @Test public void failedRuleWriteKeepsTheEntirePreviousConfiguration() throws Exception {
+    @Test public void panelChoicesAndRulesSurvivePdp4RoundTrip() throws Exception {
+        File target = new File(temporary.getRoot(), "panels");
+        ProtectionOptions options = ProtectionOptions.NONE.withPanelPrivacy(true, false, true, true)
+                .withRule("example.bank", new AppRule(1, 2, true));
+        ToggleFileStore store = new ToggleFileStore(target);
+        assertTrue(store.save(options));
+        byte[] bytes = Files.readAllBytes(target.toPath());
+        assertEquals(0x50445034, new java.io.DataInputStream(
+                new java.io.ByteArrayInputStream(bytes)).readInt());
+        assertTrue(store.read().sameAs(options));
+    }
+
+    @Test public void failedAtomicWritePreservesAllSixBaseValuesAndRules() throws Exception {
         File target = new File(temporary.getRoot(), "rules");
-        ProtectionOptions original = ProtectionOptions.BOTH.withRule("example.bank", new AppRule(2, 2));
+        ProtectionOptions original = new ProtectionOptions(true, false)
+                .withPanelPrivacy(true, false, true, false)
+                .withRule("example.bank", new AppRule(2, 2, true));
         assertTrue(new ToggleFileStore(target).save(original));
         ToggleFileStore failing = new ToggleFileStore(target) {
             @Override void replace(Path source, Path destination) throws IOException { throw new IOException(); }
         };
-        assertFalse(failing.save(ProtectionOptions.NONE.withRule("example.chat", new AppRule(1, 1))));
+        ProtectionOptions replacement = new ProtectionOptions(false, true)
+                .withPanelPrivacy(false, true, false, true)
+                .withRule("example.chat", new AppRule(1, 1));
+        assertFalse(failing.save(replacement));
         assertTrue(new ToggleFileStore(target).read().sameAs(original));
     }
 
@@ -76,14 +94,13 @@ public class ToggleFileStoreTest {
         }
     }
 
-    @Test public void allIndependentChoicesSurviveReopeningTheStore() throws Exception {
-        File target = new File(temporary.getRoot(), "toggle");
-        for (boolean floating : new boolean[]{false, true}) {
-            for (boolean split : new boolean[]{false, true}) {
-                ProtectionOptions value = new ProtectionOptions(floating, split);
-                assertTrue(new ToggleFileStore(target).save(value));
-                assertTrue(new ToggleFileStore(target).read().sameAs(value));
-            }
+    @Test public void allSixteenPanelCombinationsSurviveReopeningIndependently() throws Exception {
+        File target = new File(temporary.getRoot(), "panels");
+        for (int flags = 0; flags < 16; flags++) {
+            ProtectionOptions value = ProtectionOptions.NONE.withPanelPrivacy(
+                    (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0);
+            assertTrue(new ToggleFileStore(target).save(value));
+            assertTrue("panel combination " + flags, new ToggleFileStore(target).read().sameAs(value));
         }
     }
 
@@ -93,23 +110,12 @@ public class ToggleFileStoreTest {
         assertTrue(new ToggleFileStore(target).read().sameAs(ProtectionOptions.BOTH));
         Files.write(target.toPath(), new byte[]{'0'});
         assertTrue(new ToggleFileStore(target).read().sameAs(ProtectionOptions.NONE));
-        ProtectionOptions onlySplit = new ProtectionOptions(false, true);
-        assertTrue(new ToggleFileStore(target).save(onlySplit));
-        assertEquals(2, Files.size(target.toPath()));
-        assertTrue(new ToggleFileStore(target).read().sameAs(onlySplit));
-    }
-
-    @Test public void failedReplaceNeverCommitsHalfOfThePreferencePair() throws Exception {
-        File target = new File(temporary.getRoot(), "toggle");
-        ProtectionOptions previous = new ProtectionOptions(true, false);
-        assertTrue(new ToggleFileStore(target).save(previous));
-        ToggleFileStore failing = new ToggleFileStore(target) {
-            @Override void replace(Path source, Path destination) throws IOException {
-                throw new IOException("Injected rename failure");
-            }
-        };
-        assertFalse(failing.save(new ProtectionOptions(false, true)));
-        assertTrue(new ToggleFileStore(target).read().sameAs(previous));
+        Files.write(target.toPath(), new byte[]{'0', '1'});
+        ProtectionOptions oldPair = new ToggleFileStore(target).read();
+        assertTrue(oldPair.sameAs(new ProtectionOptions(false, true)));
+        assertFalse(oldPair.notificationCenter);
+        assertTrue(new ToggleFileStore(target).save(oldPair));
+        assertTrue(new ToggleFileStore(target).read().sameAs(oldPair));
     }
 
     @Test public void malformedLegacyAndPartialPairsAreRejected() throws Exception {
@@ -131,18 +137,54 @@ public class ToggleFileStoreTest {
         assertTrue(new ToggleFileStore(target).read().sameAs(ProtectionOptions.BOTH));
     }
 
-    @Test public void failedAtomicReplaceCannotExposeUnsavedChoice() throws Exception {
-        File target = new File(temporary.getRoot(), "toggle");
-        assertTrue(new ToggleFileStore(target).save(ProtectionOptions.BOTH));
-        ToggleFileStore failing = new ToggleFileStore(target) {
-            @Override void replace(Path source, Path destination) throws IOException {
-                throw new IOException("Injected rename failure");
-            }
-        };
-        assertFalse(failing.save(ProtectionOptions.NONE));
-        assertTrue(failing.read().sameAs(ProtectionOptions.BOTH));
-        assertTrue(new ToggleFileStore(target).read().sameAs(ProtectionOptions.BOTH));
-        assertFalse(new File(target.getPath() + ".new").exists());
+    @Test public void oldPdp2RulesKeepMaximumAndDisableAllPanels() throws Exception {
+        File target = new File(temporary.getRoot(), "old-pdp2");
+        try (var data = new java.io.DataOutputStream(new java.io.FileOutputStream(target))) {
+            data.writeInt(0x50445032);
+            data.writeBytes("10");
+            data.writeShort(1);
+            data.writeUTF("example.bank");
+            data.writeByte(2);
+            data.writeByte(1);
+            data.writeByte('1');
+        }
+        ProtectionOptions previous = new ToggleFileStore(target).read();
+        assertPanelsOff(previous);
+        assertEquals(new AppRule(2, 1, true), previous.appRules.get("example.bank"));
+    }
+
+    @Test public void pdp3MigrationKeepsNotificationCenterAndMaximumRulesOnly() throws Exception {
+        File target = new File(temporary.getRoot(), "old-pdp3");
+        try (var data = new java.io.DataOutputStream(new java.io.FileOutputStream(target))) {
+            data.writeInt(0x50445033);
+            data.writeBytes("101");
+            data.writeShort(1);
+            data.writeUTF("example.bank");
+            data.writeByte(2);
+            data.writeByte(1);
+            data.writeByte('1');
+        }
+        ProtectionOptions migrated = new ToggleFileStore(target).read();
+        assertTrue(migrated.notificationCenter);
+        assertFalse(migrated.quickSettings);
+        assertFalse(migrated.notificationCenterMaximum);
+        assertFalse(migrated.quickSettingsMaximum);
+        assertEquals(new AppRule(2, 1, true), migrated.appRules.get("example.bank"));
+    }
+
+    @Test public void malformedPdp4FlagAndTruncationAreRejected() throws Exception {
+        File target = new File(temporary.getRoot(), "invalid-pdp4");
+        ToggleFileStore store = new ToggleFileStore(target);
+        assertTrue(store.save(ProtectionOptions.NONE.withPanelPrivacy(true, true, true, true)));
+        byte[] valid = Files.readAllBytes(target.toPath());
+        for (int index = 6; index <= 9; index++) {
+            byte[] invalidFlag = valid.clone();
+            invalidFlag[index] = '2';
+            Files.write(target.toPath(), invalidFlag);
+            try { store.read(); fail("Invalid PDP4 panel flag accepted"); } catch (IOException expected) { }
+        }
+        Files.write(target.toPath(), java.util.Arrays.copyOf(valid, 8));
+        try { store.read(); fail("Truncated PDP4 data accepted"); } catch (IOException expected) { }
     }
 
     @Test public void failedFirstWritePreservesDefaultAndCreatesNoConfiguration() throws Exception {
@@ -159,5 +201,12 @@ public class ToggleFileStoreTest {
         File target = temporary.newFile("toggle");
         Files.write(target.toPath(), new byte[]{'x', 'x'});
         new ToggleFileStore(target).read();
+    }
+
+    private static void assertPanelsOff(ProtectionOptions options) {
+        assertFalse(options.notificationCenter);
+        assertFalse(options.quickSettings);
+        assertFalse(options.notificationCenterMaximum);
+        assertFalse(options.quickSettingsMaximum);
     }
 }

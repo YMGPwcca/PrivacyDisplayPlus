@@ -24,6 +24,8 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
             catch (Throwable failure) { log("popup handle hook not installed (" + failure.getClass().getSimpleName() + ")"); }
             try { SystemUiDragHook.install(loaded.classLoader); }
             catch (Throwable failure) { log("floating drag hook not installed (" + failure.getClass().getSimpleName() + ")"); }
+            try { SystemUiShadeHook.install(loaded.classLoader); }
+            catch (Throwable failure) { log("notification shade hook not installed (" + failure.getClass().getSimpleName() + ")"); }
             return;
         }
         if (!"android".equals(loaded.packageName) || !"android".equals(loaded.processName)) return;
@@ -44,8 +46,9 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
         WindowSurfacePrivacy windowSurfaces = new WindowSurfacePrivacy(access);
         RuntimeGate gate = new RuntimeGate();
         WindowFeatures features = new WindowFeatures(loader, access, windowSurfaces);
-        ModuleControl control = new ModuleControl(gate, access, features);
-        MaximumPrivacyHook maximum = new MaximumPrivacyHook(loader, access, gate);
+        NotificationShadeHook shade = new NotificationShadeHook(loader, access, gate);
+        ModuleControl control = new ModuleControl(gate, access, features, shade);
+        MaximumPrivacyHook maximum = new MaximumPrivacyHook(loader, access, gate, shade);
         Class<?> visitor = Class.forName(FirmwareProfile.VISITOR, false, loader);
         Method target = ReflectivePolicyAccess.method(visitor, FirmwareProfile.VISIT_METHOD, Object.class);
         Method dispatcher = ReflectivePolicyAccess.method(visitor, "accept", Object.class);
@@ -86,10 +89,12 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
                     configuration, configuration), changed));
             if (lifecycleHooks.contains(null)) throw new IllegalStateException("Task lifecycle hook rejected");
             maximum.install(deoptimize);
+            shade.install(deoptimize);
             control.install(loader);
         } catch (ReflectiveOperationException | RuntimeException failure) {
             gate.disableOnFailure();
             maximum.uninstall();
+            shade.uninstall();
             if (surfaceHook != null) surfaceHook.unhook();
             if (removalHook != null) removalHook.unhook();
             for (XC_MethodHook.Unhook installed : lifecycleHooks) if (installed != null) installed.unhook();
