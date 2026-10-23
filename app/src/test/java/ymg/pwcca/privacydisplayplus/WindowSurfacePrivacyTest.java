@@ -149,6 +149,63 @@ public class WindowSurfacePrivacyTest {
         assertTrue(privacy(second.buffer));
     }
 
+    @Test public void openSystemPanelSuspendsAndRestoresSelectedSplitRegion() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean panelOpen = new java.util.concurrent.atomic.AtomicBoolean();
+        surfaces = new WindowSurfacePrivacy(access, () -> 0, panelOpen::get);
+        enable();
+        panelOpen.set(true);
+        surfaces.prepare(window, ProtectionOptions.BOTH);
+        assertFalse(privacy(window.buffer));
+        int writes = access.surfaceWrites;
+        assertTrue(surfaces.enable(window, window.task, window.buffer));
+        assertEquals(writes, access.surfaceWrites);
+        panelOpen.set(false);
+        surfaces.prepare(window, ProtectionOptions.BOTH);
+        assertTrue(privacy(window.buffer));
+    }
+
+    @Test public void recentsSuspendsBothWindowTypesAndCancelledGestureRestoresThem() throws Exception {
+        for (int mode : new int[]{5, 6}) {
+            setup();
+            window.task.mode = mode;
+            window.task.split = mode == 6;
+            enable();
+            access.recentsVisible = true;
+            surfaces.prepare(window, ProtectionOptions.BOTH);
+            assertFalse(privacy(window.buffer));
+            access.recentsVisible = false;
+            surfaces.prepare(window, ProtectionOptions.BOTH);
+            assertTrue(privacy(window.buffer));
+        }
+    }
+
+    @Test public void failedPanelSuspensionCanRetryWithoutLosingOwnership() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean panelOpen = new java.util.concurrent.atomic.AtomicBoolean();
+        surfaces = new WindowSurfacePrivacy(access, () -> 0, panelOpen::get);
+        enable();
+        panelOpen.set(true);
+        access.failedSurfaceWrites = 1;
+        try { surfaces.prepare(window, ProtectionOptions.BOTH); fail("Expected write failure"); }
+        catch (IllegalAccessException expected) { }
+        assertTrue(privacy(window.buffer));
+        surfaces.prepare(window, ProtectionOptions.BOTH);
+        assertFalse(privacy(window.buffer));
+    }
+
+    @Test public void floatingDragCanResumeAfterPanelSuspension() throws Exception {
+        java.util.concurrent.atomic.AtomicBoolean panelOpen = new java.util.concurrent.atomic.AtomicBoolean();
+        surfaces = new WindowSurfacePrivacy(access, () -> 0, panelOpen::get);
+        window.task.mode = 5;
+        enable();
+        surfaces.beginDrag(window.task, "drag");
+        panelOpen.set(true);
+        surfaces.prepare(window, ProtectionOptions.BOTH);
+        assertFalse(privacy(window.buffer));
+        panelOpen.set(false);
+        assertTrue(surfaces.enable(window, window.task, window.buffer));
+        assertTrue(privacy(window.buffer));
+    }
+
     @Test public void repeatedUpdatesReuseTheSameBufferRegion() throws Exception {
         enable();
         enable();

@@ -5,6 +5,7 @@ import java.util.WeakHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 import java.lang.ref.WeakReference;
 
@@ -14,10 +15,16 @@ final class WindowSurfacePrivacy {
     private final Map<Object, Entry> owned = new WeakHashMap<>();
     private final Map<Object, DragLease> dragging = new WeakHashMap<>();
     private final LongSupplier clock;
+    private final BooleanSupplier panelOpen;
     private static final long DRAG_LEASE_MS = 3000;
 
     WindowSurfacePrivacy(PolicyAccess access) { this(access, () -> System.nanoTime() / 1_000_000); }
-    WindowSurfacePrivacy(PolicyAccess access, LongSupplier clock) { this.access = access; this.clock = clock; }
+    WindowSurfacePrivacy(PolicyAccess access, LongSupplier clock) { this(access, clock, () -> false); }
+    WindowSurfacePrivacy(PolicyAccess access, LongSupplier clock, BooleanSupplier panelOpen) {
+        this.access = access;
+        this.clock = clock;
+        this.panelOpen = panelOpen;
+    }
 
     synchronized boolean enable(Object window, Object task, Object surface) throws ReflectiveOperationException {
         return enable(window, task, surface, null);
@@ -28,17 +35,23 @@ final class WindowSurfacePrivacy {
         if (region == null) return false;
         int mode = access.windowingMode(task);
         Entry previous = owned.get(window);
-        clearReplaced(window, previous, surface);
-        // Queued before the router removes Samsung's full-app reason.
-        if (!sameOwner(previous, task, mode) || !sameRegion(previous, surface, region)) {
+        if (previous != null && previous.surface != surface) {
+            clear(window, previous);
+            previous = null;
+        }
+        if (suspended(window)) region = null;
+        // Active coverage is queued before the router removes Samsung's full-app reason.
+        if (region != null && (!sameOwner(previous, task, mode) || !sameRegion(previous, surface, region))) {
             access.queuePrivacyRegion(window, surface, region);
+        } else if (region == null && previous != null && previous.region != null) {
+            access.queuePrivacyRegion(window, surface, null);
         }
         owned.put(window, new Entry(new WeakReference<>(task), surface, selectedPackage, mode, region));
         return true;
     }
 
-    private void clearReplaced(Object window, Entry previous, Object surface) throws ReflectiveOperationException {
-        if (previous != null && previous.surface != surface) clear(window, previous);
+    boolean suspended(Object window) throws ReflectiveOperationException {
+        return panelOpen.getAsBoolean() || access.recentsVisible(window);
     }
 
     private static boolean sameOwner(Entry entry, Object task, int mode) {
@@ -53,9 +66,17 @@ final class WindowSurfacePrivacy {
             clear(window, entry);
             return;
         }
+        if (suspended(window)) {
+            if (entry.region != null) {
+                access.queuePrivacyRegion(window, entry.surface, null);
+                owned.put(window, new Entry(entry.task, entry.surface, entry.selectedPackage,
+                        entry.windowingMode, null));
+            }
+            return;
+        }
         SplitPrivacyRegion region = access.privacyRegion(window);
         if (region == null) clear(window, entry);
-        else if (!sameRegion(entry, entry.surface, region)) {
+        else if (entry.region == null || !sameRegion(entry, entry.surface, region)) {
             access.queuePrivacyRegion(window, entry.surface, region);
             owned.put(window, new Entry(entry.task, entry.surface, entry.selectedPackage, entry.windowingMode, region));
         }
@@ -63,7 +84,7 @@ final class WindowSurfacePrivacy {
 
     private boolean sameRegion(Entry entry, Object surface, SplitPrivacyRegion region) {
         // Shell owns live floating movement. Rewriting an unchanged WMS frame would undo its clip.
-        if (!floatingSurface(entry, surface)) return false;
+        if (entry.region == null || !floatingSurface(entry, surface)) return false;
         return liveDrag(entry.task.get()) && Arrays.deepEquals(entry.region.data, region.data);
     }
 
@@ -102,6 +123,7 @@ final class WindowSurfacePrivacy {
     private DragTarget dragTarget(Object window, Entry entry, Object task, ProtectionOptions options)
             throws ReflectiveOperationException {
         if (entry.task.get() != task || entry.windowingMode != 5) return null;
+        if (suspended(window) || entry.region == null) return null;
         if (!keep(window, entry, optionsFor(window, entry, options))) return null;
         return new DragTarget(entry.surface, access.windowBounds(window), access.displayBounds(window), access.cornerRadius(window));
     }

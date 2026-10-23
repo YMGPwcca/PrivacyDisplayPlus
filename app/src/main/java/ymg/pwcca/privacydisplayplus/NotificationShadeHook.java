@@ -71,6 +71,7 @@ final class NotificationShadeHook {
     private synchronized boolean notificationCenterIsOpen() { return notificationCenterOpen; }
     private synchronized boolean quickSettingsIsOpen() { return quickSettingsOpen; }
     private synchronized boolean lockScreenIsOpen() { return lockScreenOpen; }
+    synchronized boolean panelOpen() { return notificationCenterOpen || quickSettingsOpen; }
     boolean maximumRequested() {
         ProtectionOptions options = gate.options();
         return gate.isReady() && gate.isHealthy() && NotificationShadePrivacy.maximumRequested(

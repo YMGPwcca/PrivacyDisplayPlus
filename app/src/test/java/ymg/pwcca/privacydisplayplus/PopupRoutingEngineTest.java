@@ -388,6 +388,46 @@ public class PopupRoutingEngineTest {
         assertEquals(0, access.policy);
     }
 
+    @Test public void lateConversionCannotRestoreRegionWhileRecentsIsVisible() throws Exception {
+        access.recentsVisible = true;
+        PopupRoutingEngine.Snapshot snapshot = before(window);
+        samsungAppRequest("popup");
+        assertTrue(after(snapshot));
+        assertEquals(0, access.policy);
+        assertEquals(Set.of(window.task), access.partial);
+        assertFalse(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+        access.recentsVisible = false;
+        windowSurfaces.prepare(window, ProtectionOptions.BOTH);
+        assertTrue(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+    }
+
+    @Test public void coveredAppReleasesOldRegionAndRestoresItOnReturn() throws Exception {
+        PopupRoutingEngine.Snapshot first = before(window);
+        samsungAppRequest("popup");
+        assertTrue(after(first));
+        assertTrue(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+
+        access.partial.clear(); // Samsung begins the next layout with a fresh task request set.
+        access.policy = 0;
+        access.requests.clear();
+        access.recentsVisible = true;
+        PopupRoutingEngine.Snapshot covered = before(window);
+        samsungAppRequest("popup");
+        assertTrue(engine.suppressAppRequest(covered));
+        windowSurfaces.prepare(window, ProtectionOptions.BOTH);
+        assertEquals(0, access.policy);
+        assertTrue(access.partial.isEmpty());
+        assertFalse(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+
+        access.policy = 0;
+        access.requests.clear();
+        access.recentsVisible = false;
+        PopupRoutingEngine.Snapshot returned = before(window);
+        samsungAppRequest("popup");
+        assertTrue(after(returned));
+        assertTrue(Boolean.TRUE.equals(access.surfacePrivacy.get(window.buffer)));
+    }
+
     @Test public void splitOrganizerParentNeverReceivesConvertedPrivacy() throws Exception {
         split(window);
         window.task.leaf = false;
@@ -761,6 +801,7 @@ public class PopupRoutingEngineTest {
         int mode = 2, option, policy, failedPolicyWrites;
         float radius;
         boolean requirePartialBeforeRemovingApp;
+        boolean recentsVisible;
         String packageName = "previous";
         List<String> requests = new ArrayList<>();
         final Set<Object> partial = new LinkedHashSet<>();
@@ -779,6 +820,7 @@ public class PopupRoutingEngineTest {
         boolean requireBufferBeforeRemovingApp;
         @Override public Object bufferSurface(Object w) { return ((Window) w).buffer; }
         @Override public boolean taskPrivacyRequested(Object t) { return ((Task) t).requested; }
+        @Override public boolean recentsVisible(Object w) { return recentsVisible; }
         boolean regionAvailable = true;
         @Override public SplitPrivacyRegion.Bounds windowBounds(Object w) { return ((Window) w).bounds; }
         @Override public SplitPrivacyRegion.Bounds displayBounds(Object w) { return ((Window) w).displayBounds; }

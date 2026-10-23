@@ -14,7 +14,7 @@ final class ReflectivePolicyAccess implements PolicyAccess {
     private final Method getTask, getDisplayId, getWindowingMode, isSplitScreen, isLeafTask, isValid;
     private final Field taskPrivacyRequested, windowAnimator, bufferSurface;
     private final Field windowFrames, windowFrame;
-    private final Method getPendingTransaction, getDisplayContent, getBounds;
+    private final Method getPendingTransaction, getDisplayContent, getBounds, getRootTask, isVisibleRequested;
     private final Method setRegions;
     private final Field globalLock;
     private final Method requestTraversal;
@@ -65,6 +65,8 @@ final class ReflectivePolicyAccess implements PolicyAccess {
         getPendingTransaction = method(container, "getPendingTransaction");
         getDisplayContent = method(container, "getDisplayContent");
         getBounds = method(configuration, "getBounds");
+        getRootTask = method(getDisplayContent.getReturnType(), "getRootTask", int.class, int.class);
+        isVisibleRequested = method(task, "isVisibleRequested");
         isValid = method(surface, "isValid");
         method(task, "applyPrivacyModeIfNeeded", transaction);
         method(controller, "applyPartialPrivacyDisplayTasksLocked");
@@ -131,6 +133,12 @@ final class ReflectivePolicyAccess implements PolicyAccess {
     }
     @Override public boolean taskPrivacyRequested(Object task) throws IllegalAccessException {
         return taskPrivacyRequested.getBoolean(task);
+    }
+    @Override public boolean recentsVisible(Object window) throws ReflectiveOperationException {
+        Object display = getDisplayContent.invoke(window);
+        if (display == null) return false;
+        Object recents = getRootTask.invoke(display, 0, 3);
+        return recents != null && (boolean) isVisibleRequested.invoke(recents);
     }
     @Override public SplitPrivacyRegion privacyRegion(Object window) throws ReflectiveOperationException {
         SplitPrivacyRegion.Bounds display = displayBounds(window);

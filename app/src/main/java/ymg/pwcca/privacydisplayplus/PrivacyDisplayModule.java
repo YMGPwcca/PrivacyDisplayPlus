@@ -43,10 +43,11 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
 
     private static void install(ClassLoader loader) throws ReflectiveOperationException {
         ReflectivePolicyAccess access = new ReflectivePolicyAccess(loader);
-        WindowSurfacePrivacy windowSurfaces = new WindowSurfacePrivacy(access);
         RuntimeGate gate = new RuntimeGate();
-        WindowFeatures features = new WindowFeatures(loader, access, windowSurfaces);
         NotificationShadeHook shade = new NotificationShadeHook(loader, access, gate);
+        WindowSurfacePrivacy windowSurfaces = new WindowSurfacePrivacy(access,
+                () -> System.nanoTime() / 1_000_000, shade::panelOpen);
+        WindowFeatures features = new WindowFeatures(loader, access, windowSurfaces);
         ModuleControl control = new ModuleControl(gate, access, features, shade);
         MaximumPrivacyHook maximum = new MaximumPrivacyHook(loader, access, gate, shade);
         Class<?> visitor = Class.forName(FirmwareProfile.VISITOR, false, loader);
@@ -57,7 +58,8 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
         Method deoptimize = XposedBridge.class.getMethod("deoptimizeMethod", Member.class);
         deoptimize.invoke(null, dispatcher);
         XC_MethodHook.Unhook hook = XposedBridge.hookMethod(target,
-                new RoutingHook(new PopupRoutingEngine(access, windowSurfaces), gate, control, maximum));
+                new RoutingHook(new PopupRoutingEngine(access, windowSurfaces), windowSurfaces,
+                        gate, control, maximum));
         if (hook == null) throw new IllegalStateException("Hook installation rejected");
         XC_MethodHook.Unhook surfaceHook = null;
         XC_MethodHook.Unhook removalHook = null;
@@ -135,14 +137,17 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
 
     private static final class RoutingHook extends XC_MethodHook {
         private final PopupRoutingEngine engine;
+        private final WindowSurfacePrivacy surfaces;
         private final RuntimeGate gate;
         private final ModuleControl control;
         private final AtomicBoolean reportedConversion = new AtomicBoolean();
         private final MaximumPrivacyHook maximum;
         private volatile boolean enabled = true;
 
-        RoutingHook(PopupRoutingEngine engine, RuntimeGate gate, ModuleControl control, MaximumPrivacyHook maximum) {
+        RoutingHook(PopupRoutingEngine engine, WindowSurfacePrivacy surfaces, RuntimeGate gate,
+                    ModuleControl control, MaximumPrivacyHook maximum) {
             this.engine = engine;
+            this.surfaces = surfaces;
             this.gate = gate;
             this.control = control;
             this.maximum = maximum;
@@ -163,14 +168,16 @@ public final class PrivacyDisplayModule implements IXposedHookLoadPackage {
             try {
                 PopupRoutingEngine.Snapshot snapshot =
                         (PopupRoutingEngine.Snapshot) param.getObjectExtra(SNAPSHOT);
-                boolean converted = control.suppresses(param.args[0]) ? engine.suppressAppRequest(snapshot)
+                boolean covered = snapshot != null && surfaces.suspended(param.args[0]);
+                boolean suppressed = covered || control.suppresses(param.args[0]);
+                boolean converted = suppressed ? engine.suppressAppRequest(snapshot)
                         : engine.after(snapshot, control.optionsFor(param.args[0]));
                 if (converted && reportedConversion.compareAndSet(false, true)) {
                     log("app window privacy request handled; verify on the panel");
                 }
-                if (!converted) control.contributeTemporary(param.args[0]);
+                if (!converted && !covered) control.contributeTemporary(param.args[0]);
                 maximum.after((MaximumPrivacyRequests.Snapshot) param.getObjectExtra(MAXIMUM_SNAPSHOT),
-                        control.suppresses(param.args[0]), converted);
+                        suppressed, converted);
             } catch (Throwable failure) { disable(failure); }
         }
 

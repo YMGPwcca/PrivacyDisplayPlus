@@ -17,6 +17,7 @@ interface PolicyAccess {
     boolean leafTask(Object task) throws ReflectiveOperationException;
     Object bufferSurface(Object window) throws ReflectiveOperationException;
     boolean taskPrivacyRequested(Object task) throws ReflectiveOperationException;
+    default boolean recentsVisible(Object window) throws ReflectiveOperationException { return false; }
     SplitPrivacyRegion privacyRegion(Object window) throws ReflectiveOperationException;
     SplitPrivacyRegion.Bounds windowBounds(Object window) throws ReflectiveOperationException;
     SplitPrivacyRegion.Bounds displayBounds(Object window) throws ReflectiveOperationException;
