@@ -98,6 +98,16 @@ public class AppRulesTest {
         assertFalse(withApp.forApp("example.unselected", 0).allows(5));
     }
 
+    @Test public void lockScreenChoiceSurvivesOtherSettingsAndDoesNotRouteAppWindows() {
+        ProtectionOptions lock = ProtectionOptions.NONE.withLockScreenPrivacy(true, true);
+        assertTrue(lock.anyEnabled());
+        assertFalse(lock.mayRoute(5));
+        assertFalse(lock.mayRoute(6));
+        assertTrue(lock.withDefaults(true, false).withPanelPrivacy(true, false, false, false)
+                .forApp(APP, 0).lockScreenMaximum);
+        assertFalse(lock.sameAs(ProtectionOptions.NONE));
+    }
+
 
     @Test public void equalityIncludesRulesAndNullWindowPackageUsesDefaults() {
         assertFalse(ProtectionOptions.BOTH.sameAs(ProtectionOptions.BOTH.withRule(APP, new AppRule(2, 2))));

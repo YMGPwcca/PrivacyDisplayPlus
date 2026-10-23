@@ -21,6 +21,7 @@ import de.robv.android.xposed.XposedBridge;
 /** Uses native shade state, not accessibility, touch interception, or periodic polling. */
 final class SystemUiShadeHook {
     private final Field contextField, statusField, dozingField, bouncerField;
+    private final Field keyguardField, occludedField, goingAwayField, fadingAwayField;
     private final Field panelStateField, eventFractionField, eventExpandedField;
     private final Binder source = new Binder();
     private Context context;
@@ -28,7 +29,8 @@ final class SystemUiShadeHook {
     private boolean acknowledged, sending, resend, reportedFailure;
     private int desiredPanels, acknowledgedPanels;
     private float fraction;
-    private boolean expanded, dozing, bouncerShowing;
+    private boolean expanded, dozing, bouncerShowing, keyguardShowing, keyguardOccluded;
+    private boolean keyguardGoingAway, keyguardFadingAway;
     private int panelState = -1, statusBarState;
 
     private SystemUiShadeHook(ClassLoader loader) throws ReflectiveOperationException {
@@ -43,6 +45,10 @@ final class SystemUiShadeHook {
         statusField = ReflectivePolicyAccess.field(state, "statusBarState", int.class);
         dozingField = ReflectivePolicyAccess.field(state, "dozing", boolean.class);
         bouncerField = ReflectivePolicyAccess.field(state, "bouncerShowing", boolean.class);
+        keyguardField = ReflectivePolicyAccess.field(state, "keyguardShowing", boolean.class);
+        occludedField = ReflectivePolicyAccess.field(state, "keyguardOccluded", boolean.class);
+        goingAwayField = ReflectivePolicyAccess.field(state, "keyguardGoingAway", boolean.class);
+        fadingAwayField = ReflectivePolicyAccess.field(state, "keyguardFadingAway", boolean.class);
     }
 
     static void install(ClassLoader loader) throws ReflectiveOperationException {
@@ -94,6 +100,10 @@ final class SystemUiShadeHook {
             statusBarState = statusField.getInt(state);
             dozing = dozingField.getBoolean(state);
             bouncerShowing = bouncerField.getBoolean(state);
+            keyguardShowing = keyguardField.getBoolean(state);
+            keyguardOccluded = occludedField.getBoolean(state);
+            keyguardGoingAway = goingAwayField.getBoolean(state);
+            keyguardFadingAway = fadingAwayField.getBoolean(state);
             refresh(false);
         } catch (ReflectiveOperationException | RuntimeException failure) {
             failed(failure);
@@ -118,7 +128,9 @@ final class SystemUiShadeHook {
         desiredPanels = (NotificationShadePrivacy.notificationCenterOpen(fraction, expanded, panelState,
                 statusBarState, dozing, bouncerShowing) ? 1 : 0)
                 | (NotificationShadePrivacy.quickSettingsOpen(fraction, expanded, panelState,
-                statusBarState, dozing, bouncerShowing) ? 2 : 0);
+                statusBarState, dozing, bouncerShowing) ? 2 : 0)
+                | (NotificationShadePrivacy.lockScreenOpen(keyguardShowing, keyguardOccluded,
+                keyguardGoingAway, keyguardFadingAway, dozing, bouncerShowing) ? 4 : 0);
         publish(force);
     }
 
@@ -140,6 +152,7 @@ final class SystemUiShadeHook {
         extras.putBinder(ControlProtocol.SHADE_OWNER, source);
         extras.putBoolean(ControlProtocol.NOTIFICATION_CENTER_OPEN, (panels & 1) != 0);
         extras.putBoolean(ControlProtocol.QUICK_SETTINGS_OPEN, (panels & 2) != 0);
+        extras.putBoolean(ControlProtocol.LOCK_SCREEN_OPEN, (panels & 4) != 0);
         Intent intent = new Intent(ControlProtocol.SHADE_STATE).setPackage("android")
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND)
                 .putExtra(ControlProtocol.VERSION, ControlProtocol.VERSION_CODE).putExtras(extras);

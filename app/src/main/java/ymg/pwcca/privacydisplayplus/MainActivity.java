@@ -23,9 +23,10 @@ public final class MainActivity extends AppCompatActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private ControlClient control;
     private MaterialSwitch floatingToggle, splitToggle;
-    private SettingsChoiceMenu notificationCenterLevel, quickSettingsLevel;
+    private SettingsChoiceMenu notificationCenterLevel, quickSettingsLevel, lockScreenLevel;
     private PanelPrivacyLevel notificationCenterMode = PanelPrivacyLevel.OFF;
     private PanelPrivacyLevel quickSettingsMode = PanelPrivacyLevel.OFF;
+    private PanelPrivacyLevel lockScreenMode = PanelPrivacyLevel.OFF;
     private Button reboot;
     private TextView statusTitle, statusDetail, rebootStatus;
     private boolean rendering, busy;
@@ -54,6 +55,13 @@ public final class MainActivity extends AppCompatActivity {
         });
         notificationCenterLevel = setupPanelLevel(R.id.notification_center_level, true);
         quickSettingsLevel = setupPanelLevel(R.id.quick_settings_level, false);
+        lockScreenLevel = new SettingsChoiceMenu(findViewById(R.id.lock_screen_level),
+                R.string.lock_screen_title, R.string.lock_screen_description,
+                getResources().getStringArray(R.array.panel_privacy_levels), position -> {
+            if (rendering) return;
+            lockScreenMode = PanelPrivacyLevel.fromMenu(position);
+            saveAndApply(currentChoice());
+        });
         renderSavedChoice();
         floatingToggle.setOnCheckedChangeListener((view, checked) -> {
             if (!rendering) saveAndApply(currentChoice());
@@ -113,8 +121,10 @@ public final class MainActivity extends AppCompatActivity {
         splitToggle.setChecked(options.split);
         notificationCenterMode = PanelPrivacyLevel.fromSaved(options.notificationCenter, options.notificationCenterMaximum);
         quickSettingsMode = PanelPrivacyLevel.fromSaved(options.quickSettings, options.quickSettingsMaximum);
+        lockScreenMode = PanelPrivacyLevel.fromSaved(options.lockScreen, options.lockScreenMaximum);
         notificationCenterLevel.setSelection(notificationCenterMode.menuIndex);
         quickSettingsLevel.setSelection(quickSettingsMode.menuIndex);
+        lockScreenLevel.setSelection(lockScreenMode.menuIndex);
         rendering = false;
     }
 
@@ -136,7 +146,8 @@ public final class MainActivity extends AppCompatActivity {
         return ModulePreferences.options(this)
                 .withDefaults(floatingToggle.isChecked(), splitToggle.isChecked())
                 .withPanelPrivacy(notificationCenterMode.enabled, quickSettingsMode.enabled,
-                        notificationCenterMode.maximum, quickSettingsMode.maximum);
+                        notificationCenterMode.maximum, quickSettingsMode.maximum)
+                .withLockScreenPrivacy(lockScreenMode.enabled, lockScreenMode.maximum);
     }
 
     private void actionRow(int id, int title, int detail, Runnable action) {
@@ -154,7 +165,8 @@ public final class MainActivity extends AppCompatActivity {
             ProtectionOptions committed = ModulePreferences.update(this,
                     previous -> previous.withDefaults(desired.floating, desired.split)
                             .withPanelPrivacy(desired.notificationCenter, desired.quickSettings,
-                                    desired.notificationCenterMaximum, desired.quickSettingsMaximum));
+                                    desired.notificationCenterMaximum, desired.quickSettingsMaximum)
+                            .withLockScreenPrivacy(desired.lockScreen, desired.lockScreenMaximum));
             boolean saved = committed != null;
             runOnUiThread(() -> {
                 if (isDestroyed() || request != settingsGeneration) return;
@@ -188,7 +200,8 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         ProtectionOptions options = ControlProtocol.readOptions(state);
-        if ((options.notificationCenter || options.quickSettings) && !state.getBoolean(ControlProtocol.SHADE_READY)) {
+        if ((options.notificationCenter || options.quickSettings || options.lockScreen)
+                && !state.getBoolean(ControlProtocol.SHADE_READY)) {
             status(R.string.status_pending, R.string.status_pending_detail, false);
             return;
         }
@@ -218,6 +231,7 @@ public final class MainActivity extends AppCompatActivity {
         splitToggle.setEnabled(available);
         notificationCenterLevel.setEnabled(available);
         quickSettingsLevel.setEnabled(available);
+        lockScreenLevel.setEnabled(available);
         findViewById(R.id.app_rules).setEnabled(available);
         reboot.setEnabled(available && !RootCommandRunner.state().isPending());
     }

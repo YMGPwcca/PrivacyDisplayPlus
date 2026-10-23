@@ -18,7 +18,7 @@ final class NotificationShadeHook {
     private XC_MethodHook.Unhook hook;
     private IBinder owner;
     private IBinder.DeathRecipient death;
-    private boolean notificationCenterOpen, quickSettingsOpen, reportedFailure;
+    private boolean notificationCenterOpen, quickSettingsOpen, lockScreenOpen, reportedFailure;
 
     NotificationShadeHook(ClassLoader loader, ReflectivePolicyAccess access, RuntimeGate gate)
             throws ReflectiveOperationException {
@@ -44,8 +44,9 @@ final class NotificationShadeHook {
                 Object service = null;
                 try {
                     if (!gate.isReady() || !gate.isHealthy()
-                            || !(gate.options().notificationCenter || gate.options().quickSettings)
-                            || !(notificationCenterIsOpen() || quickSettingsIsOpen())) return;
+                            || !(gate.options().notificationCenter || gate.options().quickSettings
+                            || gate.options().lockScreen)
+                            || !(notificationCenterIsOpen() || quickSettingsIsOpen() || lockScreenIsOpen())) return;
                     Object policy = param.thisObject;
                     int display = displayId.getInt(policyDisplay.get(policy));
                     if (display != 0) return;
@@ -57,7 +58,8 @@ final class NotificationShadeHook {
                             && quickSettingsIsOpen();
                     Object controller = access.controllerForService(service);
                     synchronized (access.lock(controller)) {
-                        privacy.contribute(controller, centerOpen, qsOpen, display, currentUser.getInt(controller));
+                        privacy.contribute(controller, centerOpen, qsOpen, lockScreenIsOpen(),
+                                display, currentUser.getInt(controller));
                     }
                 } catch (Throwable failure) { fail(service, failure); }
             }
@@ -68,15 +70,17 @@ final class NotificationShadeHook {
     synchronized boolean connected() { return owner != null; }
     private synchronized boolean notificationCenterIsOpen() { return notificationCenterOpen; }
     private synchronized boolean quickSettingsIsOpen() { return quickSettingsOpen; }
+    private synchronized boolean lockScreenIsOpen() { return lockScreenOpen; }
     boolean maximumRequested() {
         ProtectionOptions options = gate.options();
         return gate.isReady() && gate.isHealthy() && NotificationShadePrivacy.maximumRequested(
-                notificationCenterIsOpen(), quickSettingsIsOpen(), options);
+                notificationCenterIsOpen(), quickSettingsIsOpen(), lockScreenIsOpen(), options);
     }
 
     void update(Object service, Bundle state) {
         if (state == null || !state.containsKey(ControlProtocol.NOTIFICATION_CENTER_OPEN)
-                || !state.containsKey(ControlProtocol.QUICK_SETTINGS_OPEN)) {
+                || !state.containsKey(ControlProtocol.QUICK_SETTINGS_OPEN)
+                || !state.containsKey(ControlProtocol.LOCK_SCREEN_OPEN)) {
             throw new IllegalArgumentException("Missing panel state");
         }
         IBinder source = state.getBinder(ControlProtocol.SHADE_OWNER);
@@ -92,6 +96,7 @@ final class NotificationShadeHook {
             }
             notificationCenterOpen = state.getBoolean(ControlProtocol.NOTIFICATION_CENTER_OPEN);
             quickSettingsOpen = state.getBoolean(ControlProtocol.QUICK_SETTINGS_OPEN);
+            lockScreenOpen = state.getBoolean(ControlProtocol.LOCK_SCREEN_OPEN);
         }
     }
 
@@ -101,6 +106,7 @@ final class NotificationShadeHook {
             owner = null;
             notificationCenterOpen = false;
             quickSettingsOpen = false;
+            lockScreenOpen = false;
         }
         try { access.requestTraversal(service); }
         catch (ReflectiveOperationException | RuntimeException failure) { fail(service, failure); }
@@ -113,6 +119,7 @@ final class NotificationShadeHook {
             owner = null;
             notificationCenterOpen = false;
             quickSettingsOpen = false;
+            lockScreenOpen = false;
         }
     }
 

@@ -25,8 +25,19 @@ final class NotificationShadePrivacy {
     }
     static boolean maximumRequested(boolean notificationCenterOpen, boolean quickSettingsOpen,
             ProtectionOptions options) {
+        return maximumRequested(notificationCenterOpen, quickSettingsOpen, false, options);
+    }
+
+    static boolean maximumRequested(boolean notificationCenterOpen, boolean quickSettingsOpen,
+            boolean lockScreenOpen, ProtectionOptions options) {
         return (notificationCenterOpen && options.notificationCenter && options.notificationCenterMaximum)
-                || (quickSettingsOpen && options.quickSettings && options.quickSettingsMaximum);
+                || (quickSettingsOpen && options.quickSettings && options.quickSettingsMaximum)
+                || (lockScreenOpen && options.lockScreen && options.lockScreenMaximum);
+    }
+
+    static boolean lockScreenOpen(boolean showing, boolean occluded, boolean goingAway, boolean fadingAway,
+            boolean dozing, boolean bouncerShowing) {
+        return showing && !occluded && !goingAway && !fadingAway && !dozing && !bouncerShowing;
     }
 
     private static boolean isEligiblePanel(float fraction, boolean expanded, int panelState, int statusBarState,
@@ -39,10 +50,17 @@ final class NotificationShadePrivacy {
     @SuppressWarnings("unchecked")
     void contribute(Object controller, boolean notificationCenterOpen, boolean quickSettingsOpen,
             int displayId, int userId) throws ReflectiveOperationException {
+        contribute(controller, notificationCenterOpen, quickSettingsOpen, false, displayId, userId);
+    }
+
+    void contribute(Object controller, boolean notificationCenterOpen, boolean quickSettingsOpen,
+            boolean lockScreenOpen,
+            int displayId, int userId) throws ReflectiveOperationException {
         if (displayId != 0 || userId != 0 || !gate.isReady() || !gate.isHealthy()) return;
         ProtectionOptions options = gate.options();
         if (!(notificationCenterOpen && options.notificationCenter)
-                && !(quickSettingsOpen && options.quickSettings)) return;
+                && !(quickSettingsOpen && options.quickSettings)
+                && !(lockScreenOpen && options.lockScreen)) return;
         synchronized (access.lock(controller)) {
             if (access.mode(controller) != 2) return;
             int previousPolicy = access.appPolicy(controller);

@@ -13,6 +13,8 @@ final class ProtectionOptions {
     final boolean quickSettings;
     final boolean notificationCenterMaximum;
     final boolean quickSettingsMaximum;
+    final boolean lockScreen;
+    final boolean lockScreenMaximum;
     final Map<String, AppRule> appRules;
 
     ProtectionOptions(boolean floating, boolean split) {
@@ -25,12 +27,21 @@ final class ProtectionOptions {
 
     ProtectionOptions(boolean floating, boolean split, boolean notificationCenter, boolean quickSettings,
                       boolean notificationCenterMaximum, boolean quickSettingsMaximum, Map<String, AppRule> rules) {
+        this(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
+                quickSettingsMaximum, false, false, rules);
+    }
+
+    ProtectionOptions(boolean floating, boolean split, boolean notificationCenter, boolean quickSettings,
+                      boolean notificationCenterMaximum, boolean quickSettingsMaximum,
+                      boolean lockScreen, boolean lockScreenMaximum, Map<String, AppRule> rules) {
         this.floating = floating;
         this.split = split;
         this.notificationCenter = notificationCenter;
         this.quickSettings = quickSettings;
         this.notificationCenterMaximum = notificationCenterMaximum;
         this.quickSettingsMaximum = quickSettingsMaximum;
+        this.lockScreen = lockScreen;
+        this.lockScreenMaximum = lockScreenMaximum;
         if (rules.size() > 256) throw new IllegalArgumentException("Too many app rules");
         TreeMap<String, AppRule> copy = new TreeMap<>();
         rules.forEach((name, rule) -> {
@@ -52,29 +63,34 @@ final class ProtectionOptions {
         AppRule rule = userId == 0 ? appRules.get(name) : null;
         if (rule == null) return this;
         return new ProtectionOptions(rule.floating(floating), rule.split(split), notificationCenter, quickSettings,
-                notificationCenterMaximum, quickSettingsMaximum, Map.of());
+                notificationCenterMaximum, quickSettingsMaximum, lockScreen, lockScreenMaximum, Map.of());
     }
 
     ProtectionOptions withPanelPrivacy(boolean notificationCenter, boolean quickSettings,
                                        boolean notificationCenterMaximum, boolean quickSettingsMaximum) {
         return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
-                quickSettingsMaximum, appRules);
+                quickSettingsMaximum, lockScreen, lockScreenMaximum, appRules);
+    }
+
+    ProtectionOptions withLockScreenPrivacy(boolean enabled, boolean maximum) {
+        return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
+                quickSettingsMaximum, enabled, maximum, appRules);
     }
 
     ProtectionOptions withRule(String name, AppRule rule) {
         Map<String, AppRule> copy = new TreeMap<>(appRules);
         copy.put(name, rule);
         return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
-                quickSettingsMaximum, copy);
+                quickSettingsMaximum, lockScreen, lockScreenMaximum, copy);
     }
 
     ProtectionOptions withDefaults(boolean floating, boolean split) {
         return new ProtectionOptions(floating, split, notificationCenter, quickSettings, notificationCenterMaximum,
-                quickSettingsMaximum, appRules);
+                quickSettingsMaximum, lockScreen, lockScreenMaximum, appRules);
     }
 
     boolean anyEnabled() {
-        if (floating || split || notificationCenter || quickSettings) return true;
+        if (floating || split || notificationCenter || quickSettings || lockScreen) return true;
         return appRules.values().stream().anyMatch(rule -> rule.floating() == AppRule.WINDOW || rule.split() == AppRule.WINDOW);
     }
 
@@ -104,6 +120,8 @@ final class ProtectionOptions {
         return floating == other.floating && split == other.split
                 && notificationCenter == other.notificationCenter && quickSettings == other.quickSettings
                 && notificationCenterMaximum == other.notificationCenterMaximum
-                && quickSettingsMaximum == other.quickSettingsMaximum && appRules.equals(other.appRules);
+                && quickSettingsMaximum == other.quickSettingsMaximum
+                && lockScreen == other.lockScreen && lockScreenMaximum == other.lockScreenMaximum
+                && appRules.equals(other.appRules);
     }
 }

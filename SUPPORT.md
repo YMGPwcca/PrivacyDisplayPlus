@@ -26,6 +26,8 @@ app on another Android version does not make its hooks compatible.
 - Independent Off/On/Maximum dropdowns for Notification Center and Quick
   Settings. Maximum protects that panel and requests the shared display level
   while open; it cannot select an independent per-panel brightness.
+- Off/On/Maximum for the visible lock screen, ending at credential entry,
+  ambient display or unlock. Off leaves Samsung's own conditions unchanged.
 - A Privacy Display button in Samsung's floating-window handle menu.
 - A separate Soft reboot button using KernelSU's supported `ksud soft-reboot`.
 

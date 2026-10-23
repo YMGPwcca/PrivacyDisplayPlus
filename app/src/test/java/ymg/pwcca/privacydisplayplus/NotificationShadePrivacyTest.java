@@ -86,6 +86,30 @@ public class NotificationShadePrivacyTest {
         assertFalse(NotificationShadePrivacy.maximumRequested(false, true, options));
     }
 
+    @Test public void lockScreenStopsAtOcclusionDozeBouncerOrUnlock() {
+        assertTrue(NotificationShadePrivacy.lockScreenOpen(true, false, false, false, false, false));
+        assertFalse(NotificationShadePrivacy.lockScreenOpen(false, false, false, false, false, false));
+        assertFalse(NotificationShadePrivacy.lockScreenOpen(true, true, false, false, false, false));
+        assertFalse(NotificationShadePrivacy.lockScreenOpen(true, false, true, false, false, false));
+        assertFalse(NotificationShadePrivacy.lockScreenOpen(true, false, false, true, false, false));
+        assertFalse(NotificationShadePrivacy.lockScreenOpen(true, false, false, false, true, false));
+        assertFalse(NotificationShadePrivacy.lockScreenOpen(true, false, false, false, false, true));
+    }
+
+    @Test public void lockScreenRequestAndMaximumAreIndependentOfPanels() throws Exception {
+        ProtectionOptions lock = ProtectionOptions.NONE.withLockScreenPrivacy(true, true);
+        gate.apply(lock, () -> {});
+        assertTrue(NotificationShadePrivacy.maximumRequested(false, false, true, lock));
+        assertFalse(NotificationShadePrivacy.maximumRequested(false, false, false, lock));
+        panels.contribute(access, false, false, true, 0, 0);
+        assertEquals(1, access.policy);
+        assertEquals(List.of(NotificationShadePrivacy.SOURCE), access.requests);
+        beginNativeLayout(0, "previous");
+        panels.contribute(access, false, false, false, 0, 0);
+        assertEquals(0, access.policy);
+        assertTrue(access.requests.isEmpty());
+    }
+
     @Test public void maximumAloneDoesNotAddProtectionRequest() throws Exception {
         gate.apply(ProtectionOptions.NONE.withPanelPrivacy(false, false, true, true), () -> {});
         assertFalse(NotificationShadePrivacy.maximumRequested(true, true, gate.options()));

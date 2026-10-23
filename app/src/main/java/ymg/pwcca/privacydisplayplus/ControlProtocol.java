@@ -17,6 +17,7 @@ final class ControlProtocol {
     static final String SHADE_OWNER = "shade_owner", SHADE_READY = "shade_ready";
     static final String NOTIFICATION_CENTER_OPEN = "notification_center_open";
     static final String QUICK_SETTINGS_OPEN = "quick_settings_open";
+    static final String LOCK_SCREEN_OPEN = "lock_screen_open";
     static final String SURFACE = "surface", WINDOW_BOUNDS = "window_bounds", DISPLAY_BOUNDS = "display_bounds";
     static final String TASK_BOUNDS = "task_bounds";
     static final String CORNER_RADIUS = "corner_radius";
@@ -33,16 +34,18 @@ final class ControlProtocol {
     static final String QUICK_SETTINGS = "quick_settings";
     static final String NOTIFICATION_CENTER_MAXIMUM = "notification_center_maximum";
     static final String QUICK_SETTINGS_MAXIMUM = "quick_settings_maximum";
+    static final String LOCK_SCREEN = "lock_screen", LOCK_SCREEN_MAXIMUM = "lock_screen_maximum";
     static final String READY = "ready";
     static final String HEALTHY = "healthy";
     static final String VERSION = "version";
-    // Adds independent privacy and Maximum choices for both system panels.
-    static final int VERSION_CODE = 20;
+    // Adds independent Off/On/Maximum protection for the lock screen.
+    static final int VERSION_CODE = 21;
 
     static boolean hasOptions(Bundle bundle) {
         return bundle != null && bundle.containsKey(FLOATING) && bundle.containsKey(SPLIT)
                 && bundle.containsKey(NOTIFICATION_CENTER) && bundle.containsKey(QUICK_SETTINGS)
                 && bundle.containsKey(NOTIFICATION_CENTER_MAXIMUM) && bundle.containsKey(QUICK_SETTINGS_MAXIMUM)
+                && bundle.containsKey(LOCK_SCREEN) && bundle.containsKey(LOCK_SCREEN_MAXIMUM)
                 && bundle.containsKey(RULE_PACKAGES) && bundle.containsKey(RULE_FLOATING)
                 && bundle.containsKey(RULE_SPLIT) && bundle.containsKey(RULE_MAXIMUM);
     }
@@ -61,7 +64,8 @@ final class ControlProtocol {
         }
         return new ProtectionOptions(bundle.getBoolean(FLOATING), bundle.getBoolean(SPLIT),
                 bundle.getBoolean(NOTIFICATION_CENTER), bundle.getBoolean(QUICK_SETTINGS),
-                bundle.getBoolean(NOTIFICATION_CENTER_MAXIMUM), bundle.getBoolean(QUICK_SETTINGS_MAXIMUM), rules);
+                bundle.getBoolean(NOTIFICATION_CENTER_MAXIMUM), bundle.getBoolean(QUICK_SETTINGS_MAXIMUM),
+                bundle.getBoolean(LOCK_SCREEN), bundle.getBoolean(LOCK_SCREEN_MAXIMUM), rules);
     }
 
     private static void validateRules(String[] names, int[] floating, int[] split, boolean[] maximum) {
@@ -81,6 +85,8 @@ final class ControlProtocol {
         bundle.putBoolean(QUICK_SETTINGS, options.quickSettings);
         bundle.putBoolean(NOTIFICATION_CENTER_MAXIMUM, options.notificationCenterMaximum);
         bundle.putBoolean(QUICK_SETTINGS_MAXIMUM, options.quickSettingsMaximum);
+        bundle.putBoolean(LOCK_SCREEN, options.lockScreen);
+        bundle.putBoolean(LOCK_SCREEN_MAXIMUM, options.lockScreenMaximum);
         String[] names = options.appRules.keySet().toArray(new String[0]);
         int[] floating = new int[names.length], split = new int[names.length];
         boolean[] maximum = new boolean[names.length];
