@@ -7,8 +7,8 @@ android {
         applicationId = "ymg.pwcca.privacydisplayplus"
         minSdk = 36
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.2.1"
+        versionCode = 24
+        versionName = "1.3.0"
         testInstrumentationRunner = "ymg.pwcca.privacydisplayplus.DeviceControlProbe"
     }
     compileOptions {
