@@ -4,6 +4,15 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class MaximumPrivacyStateTest {
+    @Test public void credentialMaximumRequiresSamsungSecureOptionAndNativeReason() {
+        assertTrue(MaximumPrivacyState.secureEntryMaximum(true, 256, 2, true));
+        assertTrue(MaximumPrivacyState.secureEntryMaximum(true, 258, 3, true));
+        assertFalse(MaximumPrivacyState.secureEntryMaximum(false, 256, 2, true));
+        assertFalse(MaximumPrivacyState.secureEntryMaximum(true, 0, 2, true));
+        assertFalse(MaximumPrivacyState.secureEntryMaximum(true, 256, 1, true));
+        assertFalse(MaximumPrivacyState.secureEntryMaximum(true, 256, 2, false));
+    }
+
     @Test public void maximumLevelWriteCannotOvertakeAPendingFullEnableOrDisable() {
         assertFalse(MaximumPrivacyState.needsLevelWrite(false, true, true, false));
         assertFalse(MaximumPrivacyState.needsLevelWrite(true, false, false, true));

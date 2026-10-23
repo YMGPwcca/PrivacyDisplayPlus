@@ -108,6 +108,16 @@ public class AppRulesTest {
         assertFalse(lock.sameAs(ProtectionOptions.NONE));
     }
 
+    @Test public void secureEntryMaximumDoesNotEnablePrivacyByItself() {
+        ProtectionOptions secure = ProtectionOptions.NONE.withSecureEntryMaximum(true);
+        assertFalse(secure.anyEnabled());
+        assertFalse(secure.mayRoute(5));
+        assertFalse(secure.mayRoute(6));
+        assertTrue(secure.withDefaults(true, false).withLockScreenPrivacy(true, false)
+                .forApp(APP, 0).secureEntryMaximum);
+        assertFalse(secure.sameAs(ProtectionOptions.NONE));
+    }
+
 
     @Test public void equalityIncludesRulesAndNullWindowPackageUsesDefaults() {
         assertFalse(ProtectionOptions.BOTH.sameAs(ProtectionOptions.BOTH.withRule(APP, new AppRule(2, 2))));

@@ -28,6 +28,8 @@ app on another Android version does not make its hooks compatible.
   while open; it cannot select an independent per-panel brightness.
 - Off/On/Maximum for the visible lock screen, ending at credential entry,
   ambient display or unlock. Off leaves Samsung's own conditions unchanged.
+- Optional Maximum during Samsung's native PIN, pattern or password condition.
+  Samsung's PIN condition must be enabled; this switch does not turn privacy on.
 - A Privacy Display button in Samsung's floating-window handle menu.
 - A separate Soft reboot button using KernelSU's supported `ksud soft-reboot`.
 

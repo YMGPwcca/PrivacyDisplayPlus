@@ -55,17 +55,31 @@ public class ToggleFileStoreTest {
         assertTrue(new ToggleFileStore(target).read().sameAs(options));
     }
 
-    @Test public void panelAndLockScreenChoicesSurvivePdp5RoundTrip() throws Exception {
+    @Test public void panelLockScreenAndSecureEntryChoicesSurvivePdp6RoundTrip() throws Exception {
         File target = new File(temporary.getRoot(), "panels");
         ProtectionOptions options = ProtectionOptions.NONE.withPanelPrivacy(true, false, true, true)
                 .withLockScreenPrivacy(true, true)
+                .withSecureEntryMaximum(true)
                 .withRule("example.bank", new AppRule(1, 2, true));
         ToggleFileStore store = new ToggleFileStore(target);
         assertTrue(store.save(options));
         byte[] bytes = Files.readAllBytes(target.toPath());
-        assertEquals(0x50445035, new java.io.DataInputStream(
+        assertEquals(0x50445036, new java.io.DataInputStream(
                 new java.io.ByteArrayInputStream(bytes)).readInt());
         assertTrue(store.read().sameAs(options));
+    }
+
+    @Test public void pdp5MigrationLeavesSecureEntryMaximumOff() throws Exception {
+        File target = new File(temporary.getRoot(), "old-pdp5");
+        try (var data = new java.io.DataOutputStream(new java.io.FileOutputStream(target))) {
+            data.writeInt(0x50445035);
+            data.writeBytes("10101011");
+            data.writeShort(0);
+        }
+        ProtectionOptions migrated = new ToggleFileStore(target).read();
+        assertTrue(migrated.lockScreen);
+        assertTrue(migrated.lockScreenMaximum);
+        assertFalse(migrated.secureEntryMaximum);
     }
 
     @Test public void pdp4MigrationLeavesLockScreenOff() throws Exception {
@@ -189,20 +203,20 @@ public class ToggleFileStoreTest {
         assertEquals(new AppRule(2, 1, true), migrated.appRules.get("example.bank"));
     }
 
-    @Test public void malformedPdp5FlagAndTruncationAreRejected() throws Exception {
-        File target = new File(temporary.getRoot(), "invalid-pdp5");
+    @Test public void malformedPdp6FlagAndTruncationAreRejected() throws Exception {
+        File target = new File(temporary.getRoot(), "invalid-pdp6");
         ToggleFileStore store = new ToggleFileStore(target);
         assertTrue(store.save(ProtectionOptions.NONE.withPanelPrivacy(true, true, true, true)
-                .withLockScreenPrivacy(true, true)));
+                .withLockScreenPrivacy(true, true).withSecureEntryMaximum(true)));
         byte[] valid = Files.readAllBytes(target.toPath());
-        for (int index = 6; index <= 11; index++) {
+        for (int index = 6; index <= 12; index++) {
             byte[] invalidFlag = valid.clone();
             invalidFlag[index] = '2';
             Files.write(target.toPath(), invalidFlag);
-            try { store.read(); fail("Invalid PDP5 flag accepted"); } catch (IOException expected) { }
+            try { store.read(); fail("Invalid PDP6 flag accepted"); } catch (IOException expected) { }
         }
-        Files.write(target.toPath(), java.util.Arrays.copyOf(valid, 10));
-        try { store.read(); fail("Truncated PDP5 data accepted"); } catch (IOException expected) { }
+        Files.write(target.toPath(), java.util.Arrays.copyOf(valid, 11));
+        try { store.read(); fail("Truncated PDP6 data accepted"); } catch (IOException expected) { }
     }
 
     @Test public void failedFirstWritePreservesDefaultAndCreatesNoConfiguration() throws Exception {

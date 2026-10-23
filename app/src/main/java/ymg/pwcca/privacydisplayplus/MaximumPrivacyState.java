@@ -8,6 +8,12 @@ record MaximumPrivacyState(int userId, int mode, int displayState, int temporary
         return previousMaximum != maximum && requestedFull == appliedFull;
     }
 
+    static boolean secureEntryMaximum(boolean selected, int nativeOptions, int nativeReasons,
+            boolean requestedFull) {
+        // Samsung's secured-screen option (256) must have supplied the native secure reason (2).
+        return selected && requestedFull && (nativeOptions & 256) != 0 && (nativeReasons & 2) != 0;
+    }
+
     boolean allowsOverride() {
         if (userId != 0 || mode != 2 || displayState != 2) return false;
         // Display off/AOD, sleep, and an explicit native off token.

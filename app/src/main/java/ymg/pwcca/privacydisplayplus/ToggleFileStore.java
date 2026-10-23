@@ -34,23 +34,25 @@ class ToggleFileStore {
         try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(bytes))) {
             int format = input.readInt();
             if (format != 0x50445031 && format != 0x50445032 && format != 0x50445033
-                    && format != 0x50445034 && format != 0x50445035) {
+                    && format != 0x50445034 && format != 0x50445035 && format != 0x50445036) {
                 throw new IOException("Invalid protection storage");
             }
             boolean floating = decode(input.readByte()), split = decode(input.readByte());
             boolean notificationCenter = false, quickSettings = false;
             boolean notificationCenterMaximum = false, quickSettingsMaximum = false;
             boolean lockScreen = false, lockScreenMaximum = false;
+            boolean secureEntryMaximum = false;
             if (format == 0x50445033) {
                 notificationCenter = decode(input.readByte());
-            } else if (format == 0x50445034 || format == 0x50445035) {
+            } else if (format == 0x50445034 || format == 0x50445035 || format == 0x50445036) {
                 notificationCenter = decode(input.readByte());
                 quickSettings = decode(input.readByte());
                 notificationCenterMaximum = decode(input.readByte());
                 quickSettingsMaximum = decode(input.readByte());
-                if (format == 0x50445035) {
+                if (format >= 0x50445035) {
                     lockScreen = decode(input.readByte());
                     lockScreenMaximum = decode(input.readByte());
+                    if (format == 0x50445036) secureEntryMaximum = decode(input.readByte());
                 }
             }
             int count = input.readUnsignedShort();
@@ -65,7 +67,8 @@ class ToggleFileStore {
             }
             if (input.available() != 0) throw new IOException("Trailing protection data");
             return new ProtectionOptions(floating, split, notificationCenter, quickSettings,
-                    notificationCenterMaximum, quickSettingsMaximum, lockScreen, lockScreenMaximum, rules);
+                    notificationCenterMaximum, quickSettingsMaximum, lockScreen, lockScreenMaximum,
+                    secureEntryMaximum, rules);
         } catch (IllegalArgumentException failure) { throw new IOException("Invalid app rule", failure); }
     }
 
@@ -92,7 +95,7 @@ class ToggleFileStore {
     private void write(File temporary, ProtectionOptions value) throws IOException {
         try (FileOutputStream output = new FileOutputStream(temporary)) {
             DataOutputStream data = new DataOutputStream(output);
-            data.writeInt(0x50445035);
+            data.writeInt(0x50445036);
             output.write(value.floating ? '1' : '0');
             output.write(value.split ? '1' : '0');
             output.write(value.notificationCenter ? '1' : '0');
@@ -101,6 +104,7 @@ class ToggleFileStore {
             output.write(value.quickSettingsMaximum ? '1' : '0');
             output.write(value.lockScreen ? '1' : '0');
             output.write(value.lockScreenMaximum ? '1' : '0');
+            output.write(value.secureEntryMaximum ? '1' : '0');
             data.writeShort(value.appRules.size());
             for (var entry : value.appRules.entrySet()) {
                 data.writeUTF(entry.getKey());

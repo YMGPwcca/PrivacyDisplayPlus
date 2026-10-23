@@ -11,6 +11,7 @@ An LSPosed module for window-level Samsung Privacy Display.
 - Toggle a floating window’s protection from its native handle menu.
 - Set Notification Center and Quick Settings protection to Off, On or Maximum independently.
 - Set lock-screen protection to Off, On or Maximum until credential entry or unlock.
+- Request Maximum during Samsung's PIN, pattern or password privacy condition.
 - Use the separate Soft reboot button on supported KernelSU setups.
 
 Samsung keeps its own app selection. Full-screen apps and other Samsung privacy
@@ -59,6 +60,12 @@ screen. The module's request stops at credential entry, ambient display or
 unlock. Off leaves Samsung's independent conditions unchanged. Maximum uses the
 same shared screen level as the app and panel controls. It defaults to Off after
 upgrading.
+
+**PIN, pattern, password:** Samsung's own condition still decides whether
+Privacy Display activates during entry in Settings, the lock screen or Secure
+Folder. Turn it on in Samsung settings first. The new switch requests Maximum
+only while that native condition is protecting the screen. It defaults to Off
+after upgrading and does not change Samsung's saved privacy level.
 
 **Maximum privacy protection:** in an app's rule dialog, enable the switch to
 request Maximum while that app requests privacy protection. This also works for

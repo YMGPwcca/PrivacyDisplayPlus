@@ -22,7 +22,7 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends AppCompatActivity {
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private ControlClient control;
-    private MaterialSwitch floatingToggle, splitToggle;
+    private MaterialSwitch floatingToggle, splitToggle, secureEntryMaximumToggle;
     private SettingsChoiceMenu notificationCenterLevel, quickSettingsLevel, lockScreenLevel;
     private PanelPrivacyLevel notificationCenterMode = PanelPrivacyLevel.OFF;
     private PanelPrivacyLevel quickSettingsMode = PanelPrivacyLevel.OFF;
@@ -42,6 +42,7 @@ public final class MainActivity extends AppCompatActivity {
         control = new ControlClient(this);
         floatingToggle = findViewById(R.id.popup_toggle);
         splitToggle = findViewById(R.id.split_toggle);
+        secureEntryMaximumToggle = findViewById(R.id.secure_entry_maximum_toggle);
         reboot = findViewById(R.id.soft_reboot);
         statusTitle = findViewById(R.id.status_title);
         statusDetail = findViewById(R.id.status_detail);
@@ -67,6 +68,9 @@ public final class MainActivity extends AppCompatActivity {
             if (!rendering) saveAndApply(currentChoice());
         });
         splitToggle.setOnCheckedChangeListener((view, checked) -> {
+            if (!rendering) saveAndApply(currentChoice());
+        });
+        secureEntryMaximumToggle.setOnCheckedChangeListener((view, checked) -> {
             if (!rendering) saveAndApply(currentChoice());
         });
         reboot.setOnClickListener(view -> confirmSoftReboot());
@@ -119,6 +123,7 @@ public final class MainActivity extends AppCompatActivity {
         rendering = true;
         floatingToggle.setChecked(options.floating);
         splitToggle.setChecked(options.split);
+        secureEntryMaximumToggle.setChecked(options.secureEntryMaximum);
         notificationCenterMode = PanelPrivacyLevel.fromSaved(options.notificationCenter, options.notificationCenterMaximum);
         quickSettingsMode = PanelPrivacyLevel.fromSaved(options.quickSettings, options.quickSettingsMaximum);
         lockScreenMode = PanelPrivacyLevel.fromSaved(options.lockScreen, options.lockScreenMaximum);
@@ -147,7 +152,8 @@ public final class MainActivity extends AppCompatActivity {
                 .withDefaults(floatingToggle.isChecked(), splitToggle.isChecked())
                 .withPanelPrivacy(notificationCenterMode.enabled, quickSettingsMode.enabled,
                         notificationCenterMode.maximum, quickSettingsMode.maximum)
-                .withLockScreenPrivacy(lockScreenMode.enabled, lockScreenMode.maximum);
+                .withLockScreenPrivacy(lockScreenMode.enabled, lockScreenMode.maximum)
+                .withSecureEntryMaximum(secureEntryMaximumToggle.isChecked());
     }
 
     private void actionRow(int id, int title, int detail, Runnable action) {
@@ -166,7 +172,8 @@ public final class MainActivity extends AppCompatActivity {
                     previous -> previous.withDefaults(desired.floating, desired.split)
                             .withPanelPrivacy(desired.notificationCenter, desired.quickSettings,
                                     desired.notificationCenterMaximum, desired.quickSettingsMaximum)
-                            .withLockScreenPrivacy(desired.lockScreen, desired.lockScreenMaximum));
+                            .withLockScreenPrivacy(desired.lockScreen, desired.lockScreenMaximum)
+                            .withSecureEntryMaximum(desired.secureEntryMaximum));
             boolean saved = committed != null;
             runOnUiThread(() -> {
                 if (isDestroyed() || request != settingsGeneration) return;
@@ -205,7 +212,8 @@ public final class MainActivity extends AppCompatActivity {
             status(R.string.status_pending, R.string.status_pending_detail, false);
             return;
         }
-        boolean enabled = options.anyEnabled() || options.hasMaximumRules() || state.getInt(ControlProtocol.OVERRIDE_COUNT) > 0;
+        boolean enabled = options.anyEnabled() || options.hasMaximumRules() || options.secureEntryMaximum
+                || state.getInt(ControlProtocol.OVERRIDE_COUNT) > 0;
         status(enabled ? R.string.status_on : R.string.status_off,
                 enabled ? R.string.status_on_detail : R.string.status_off_detail, false);
     }
@@ -229,6 +237,7 @@ public final class MainActivity extends AppCompatActivity {
         boolean available = !RootCommandRunner.state().isRunning() && supported();
         floatingToggle.setEnabled(available);
         splitToggle.setEnabled(available);
+        secureEntryMaximumToggle.setEnabled(available);
         notificationCenterLevel.setEnabled(available);
         quickSettingsLevel.setEnabled(available);
         lockScreenLevel.setEnabled(available);

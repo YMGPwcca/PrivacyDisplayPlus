@@ -15,7 +15,8 @@ final class MaximumPrivacyHook {
     private final MaximumPrivacyRequests requests;
     private final NotificationShadeHook panels;
     private final Field policyService, policyDisplay, displayId, currentUser, displayState;
-    private final Field temporaryOff, fixedOff, requestedFull, appliedFull, appliedTasks, aiqe, showUser;
+    private final Field temporaryOff, fixedOff, temporaryOn, privacyOption;
+    private final Field requestedFull, appliedFull, appliedTasks, aiqe, showUser;
     private final Method begin, finish, applyPartial, writeLevel, notifyAiqe, setPd, applyState;
     private final Method[] callers;
     private final Field handlerController;
@@ -40,6 +41,8 @@ final class MaximumPrivacyHook {
         displayState = field(controller, "mDisplayState", int.class);
         temporaryOff = field(controller, "mPrivacyDisplayTemporaryOff", int.class);
         fixedOff = field(controller, "mPrivacyDisplayFixedOff", int.class);
+        temporaryOn = field(controller, "mPrivacyDisplayTemporaryOn", int.class);
+        privacyOption = field(controller, "mPrivacyDisplayOption", int.class);
         requestedFull = field(controller, "mRequestedPrivacyDisplay", boolean.class);
         appliedFull = field(controller, "mPrivacyDisplayApplied", boolean.class);
         appliedTasks = field(controller, "mPartialPrivacyAppliedTasks", Set.class);
@@ -190,7 +193,10 @@ final class MaximumPrivacyHook {
         if (!state.allowsOverride()) return false;
         boolean panelMaximum = panels.maximumRequested() && requestedFull.getBoolean(controller);
         return requests.wantsMaximum(gate.options(), requestedFull.getBoolean(controller),
-                (Set<?>) appliedTasks.get(controller)) || panelMaximum;
+                (Set<?>) appliedTasks.get(controller)) || panelMaximum
+                || MaximumPrivacyState.secureEntryMaximum(gate.options().secureEntryMaximum,
+                        privacyOption.getInt(controller), temporaryOn.getInt(controller),
+                        requestedFull.getBoolean(controller));
     }
 
     private void refresh(Object controller) throws ReflectiveOperationException {
